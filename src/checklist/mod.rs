@@ -3,6 +3,7 @@
 //! Provides expected content definitions for different artifact types.
 
 pub mod install_initramfs;
+pub mod iso;
 pub mod live_initramfs;
 pub mod rootfs;
 
@@ -140,6 +141,8 @@ pub enum ChecklistType {
     LiveInitramfs,
     /// Full rootfs
     Rootfs,
+    /// Live ISO image
+    Iso,
 }
 
 impl ChecklistType {
@@ -150,6 +153,7 @@ impl ChecklistType {
             }
             "live-initramfs" | "live_initramfs" | "live" => Some(ChecklistType::LiveInitramfs),
             "rootfs" | "root" => Some(ChecklistType::Rootfs),
+            "iso" => Some(ChecklistType::Iso),
             _ => None,
         }
     }
@@ -159,6 +163,7 @@ impl ChecklistType {
             ChecklistType::InstallInitramfs => "Install Initramfs",
             ChecklistType::LiveInitramfs => "Live Initramfs",
             ChecklistType::Rootfs => "Rootfs",
+            ChecklistType::Iso => "Live ISO",
         }
     }
 }

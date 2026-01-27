@@ -8,7 +8,7 @@ use std::process::ExitCode;
 use anyhow::{bail, Context, Result};
 use clap::{Parser, Subcommand};
 
-use fsdbg::checklist::{CheckCategory, ChecklistType, VerificationReport};
+use fsdbg::checklist::{ChecklistType, VerificationReport};
 use fsdbg::cpio::CpioReader;
 use fsdbg::erofs::ErofsReader;
 use fsdbg::iso::IsoReader;
@@ -34,7 +34,7 @@ enum Commands {
     Verify {
         /// Path to archive file
         archive: PathBuf,
-        /// Checklist type (install-initramfs, live-initramfs, rootfs)
+        /// Checklist type (install-initramfs, live-initramfs, rootfs, iso)
         #[arg(short, long, value_name = "TYPE")]
         r#type: String,
         /// Show only failures
@@ -147,7 +147,7 @@ fn cmd_inspect(path: &PathBuf) -> Result<bool> {
 fn cmd_verify(path: &PathBuf, checklist_type: &str, failures_only: bool) -> Result<bool> {
     let checklist = ChecklistType::from_str(checklist_type)
         .ok_or_else(|| anyhow::anyhow!(
-            "Unknown checklist type: {}. Valid types: install-initramfs, live-initramfs, rootfs",
+            "Unknown checklist type: {}. Valid types: install-initramfs, live-initramfs, rootfs, iso",
             checklist_type
         ))?;
 
@@ -160,9 +160,20 @@ fn cmd_verify(path: &PathBuf, checklist_type: &str, failures_only: bool) -> Resu
                 ChecklistType::InstallInitramfs => fsdbg::checklist::install_initramfs::verify(&reader),
                 ChecklistType::LiveInitramfs => fsdbg::checklist::live_initramfs::verify(&reader),
                 ChecklistType::Rootfs => fsdbg::checklist::rootfs::verify(&reader),
+                ChecklistType::Iso => bail!("ISO checklist requires an ISO file, not CPIO"),
             }
         }
-        _ => bail!("Checklist verification only supports CPIO archives"),
+        ArchiveFormat::Iso => {
+            let reader = IsoReader::open(path)?;
+            match checklist {
+                ChecklistType::Iso => fsdbg::checklist::iso::verify(&reader),
+                _ => bail!(
+                    "Checklist type '{}' not supported for ISO format. Use 'iso'.",
+                    checklist.name()
+                ),
+            }
+        }
+        _ => bail!("Checklist verification only supports CPIO and ISO archives"),
     };
 
     print_report(&report, failures_only);

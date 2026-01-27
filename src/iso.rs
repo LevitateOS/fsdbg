@@ -112,9 +112,10 @@ impl IsoReader {
                 continue;
             }
 
-            // Parse ls-style output
-            // Format: "drwxr-xr-x   2   0   0   2048 Jan  1 2025 dirname"
-            // Or with symlinks: "lrwxrwxrwx   1   0   0   7 Jan  1 2025 link -> target"
+            // Parse ls-style output from isoinfo -l -R
+            // Format: "drwxr-xr-x   1   0   0   2048 Jan 27 2026 [  37 02]  boot"
+            //          mode      links uid gid size  month day year [extent]  name
+            // The [extent] part is the ISO sector location, we need to skip it
             let parts: Vec<&str> = line.split_whitespace().collect();
             if parts.len() < 9 {
                 continue;
@@ -126,8 +127,21 @@ impl IsoReader {
 
             let size: u64 = parts[4].parse().unwrap_or(0);
 
-            // Find filename (parts 8 onwards, may contain spaces)
-            let name_parts = &parts[8..];
+            // Find filename after the [extent] bracket
+            // The bracket starts at parts[8] with '[' and we need to find where ']' ends
+            let mut name_start_idx = 8;
+            for (i, part) in parts[8..].iter().enumerate() {
+                if part.ends_with(']') {
+                    name_start_idx = 8 + i + 1;
+                    break;
+                }
+            }
+
+            if name_start_idx >= parts.len() {
+                continue;
+            }
+
+            let name_parts = &parts[name_start_idx..];
             let name_str = name_parts.join(" ");
 
             // Handle symlinks (name -> target)
