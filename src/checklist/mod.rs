@@ -2,6 +2,7 @@
 //!
 //! Provides expected content definitions for different artifact types.
 
+pub mod auth_audit;
 pub mod install_initramfs;
 pub mod iso;
 pub mod live_initramfs;
@@ -49,6 +50,7 @@ pub enum CheckCategory {
     Directory,
     Library,
     KernelModule,
+    License,
     Other,
 }
 
@@ -63,6 +65,7 @@ impl fmt::Display for CheckCategory {
             CheckCategory::Directory => write!(f, "Directories"),
             CheckCategory::Library => write!(f, "Libraries"),
             CheckCategory::KernelModule => write!(f, "Kernel Modules"),
+            CheckCategory::License => write!(f, "Licenses"),
             CheckCategory::Other => write!(f, "Other"),
         }
     }
@@ -119,7 +122,8 @@ impl VerificationReport {
                 CheckCategory::Directory => 5,
                 CheckCategory::Library => 6,
                 CheckCategory::KernelModule => 7,
-                CheckCategory::Other => 8,
+                CheckCategory::License => 8,
+                CheckCategory::Other => 9,
             };
             groups
                 .entry(key)
@@ -143,6 +147,8 @@ pub enum ChecklistType {
     Rootfs,
     /// Live ISO image
     Iso,
+    /// Authentication audit (PAM, sudo, login security)
+    AuthAudit,
 }
 
 impl ChecklistType {
@@ -154,6 +160,7 @@ impl ChecklistType {
             "live-initramfs" | "live_initramfs" | "live" => Some(ChecklistType::LiveInitramfs),
             "rootfs" | "root" => Some(ChecklistType::Rootfs),
             "iso" => Some(ChecklistType::Iso),
+            "auth-audit" | "auth_audit" | "auth" => Some(ChecklistType::AuthAudit),
             _ => None,
         }
     }
@@ -164,6 +171,7 @@ impl ChecklistType {
             ChecklistType::LiveInitramfs => "Live Initramfs",
             ChecklistType::Rootfs => "Rootfs",
             ChecklistType::Iso => "Live ISO",
+            ChecklistType::AuthAudit => "Authentication Audit",
         }
     }
 }

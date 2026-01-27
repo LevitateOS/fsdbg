@@ -37,9 +37,9 @@ enum Commands {
         /// Checklist type (install-initramfs, live-initramfs, rootfs, iso)
         #[arg(short, long, value_name = "TYPE")]
         r#type: String,
-        /// Show only failures
-        #[arg(long)]
-        failures_only: bool,
+        /// Show all checks including passing ones (default: only show failures)
+        #[arg(short, long)]
+        verbose: bool,
     },
     /// Check that all symlinks resolve
     CheckSymlinks {
@@ -79,8 +79,8 @@ fn run(cli: Cli) -> Result<bool> {
         Commands::Verify {
             archive,
             r#type,
-            failures_only,
-        } => cmd_verify(&archive, &r#type, failures_only),
+            verbose,
+        } => cmd_verify(&archive, &r#type, verbose),
         Commands::CheckSymlinks { archive } => cmd_check_symlinks(&archive),
         Commands::Diff { archive1, archive2 } => cmd_diff(&archive1, &archive2),
     }
@@ -144,10 +144,10 @@ fn cmd_inspect(path: &PathBuf) -> Result<bool> {
     Ok(true)
 }
 
-fn cmd_verify(path: &PathBuf, checklist_type: &str, failures_only: bool) -> Result<bool> {
+fn cmd_verify(path: &PathBuf, checklist_type: &str, verbose: bool) -> Result<bool> {
     let checklist = ChecklistType::from_str(checklist_type)
         .ok_or_else(|| anyhow::anyhow!(
-            "Unknown checklist type: {}. Valid types: install-initramfs, live-initramfs, rootfs, iso",
+            "Unknown checklist type: {}. Valid types: install-initramfs, live-initramfs, rootfs, iso, auth-audit",
             checklist_type
         ))?;
 
@@ -160,6 +160,7 @@ fn cmd_verify(path: &PathBuf, checklist_type: &str, failures_only: bool) -> Resu
                 ChecklistType::InstallInitramfs => fsdbg::checklist::install_initramfs::verify(&reader),
                 ChecklistType::LiveInitramfs => fsdbg::checklist::live_initramfs::verify(&reader),
                 ChecklistType::Rootfs => fsdbg::checklist::rootfs::verify(&reader),
+                ChecklistType::AuthAudit => fsdbg::checklist::auth_audit::verify(&reader),
                 ChecklistType::Iso => bail!("ISO checklist requires an ISO file, not CPIO"),
             }
         }
@@ -167,6 +168,9 @@ fn cmd_verify(path: &PathBuf, checklist_type: &str, failures_only: bool) -> Resu
             let reader = IsoReader::open(path)?;
             match checklist {
                 ChecklistType::Iso => fsdbg::checklist::iso::verify(&reader),
+                ChecklistType::AuthAudit => bail!(
+                    "Auth audit requires a rootfs archive (CPIO/EROFS), not ISO. Extract the rootfs first."
+                ),
                 _ => bail!(
                     "Checklist type '{}' not supported for ISO format. Use 'iso'.",
                     checklist.name()
@@ -176,7 +180,7 @@ fn cmd_verify(path: &PathBuf, checklist_type: &str, failures_only: bool) -> Resu
         _ => bail!("Checklist verification only supports CPIO and ISO archives"),
     };
 
-    print_report(&report, failures_only);
+    print_report(&report, verbose);
 
     Ok(report.is_success())
 }
@@ -315,36 +319,65 @@ fn format_name(format: &ArchiveFormat) -> &'static str {
     }
 }
 
-fn print_report(report: &VerificationReport, failures_only: bool) {
+fn print_report(report: &VerificationReport, verbose: bool) {
     println!("=== Verification: {} ===", report.artifact_type);
     println!();
 
     for (category, results) in report.by_category() {
-        let has_content = if failures_only {
-            results.iter().any(|r| !r.passed)
-        } else {
-            !results.is_empty()
-        };
+        let failures: Vec<_> = results.iter().filter(|r| !r.passed).collect();
+        let pass_count = results.len() - failures.len();
 
-        if !has_content {
+        // In quiet mode, skip categories with no failures
+        if !verbose && failures.is_empty() {
             continue;
         }
 
         println!("{}:", category);
-        for result in results {
-            if failures_only && result.passed {
-                continue;
+
+        // Show passing items only in verbose mode
+        if verbose {
+            for result in &results {
+                if result.passed {
+                    let status = "[PASS]";
+                    if let Some(ref msg) = result.message {
+                        println!("  {} {} - {}", status, result.item, msg);
+                    } else {
+                        println!("  {} {}", status, result.item);
+                    }
+                }
             }
+        }
 
-            let status = if result.passed { "[PASS]" } else { "[FAIL]" };
-
+        // Always show failures
+        for result in &failures {
+            let status = "[FAIL]";
             if let Some(ref msg) = result.message {
                 println!("  {} {} - {}", status, result.item, msg);
             } else {
                 println!("  {} {}", status, result.item);
             }
         }
+
+        // In quiet mode with failures, show how many passed in this category
+        if !verbose && !failures.is_empty() && pass_count > 0 {
+            println!("  ({} passed)", pass_count);
+        }
+
         println!();
+    }
+
+    // Summary of categories with all passes (quiet mode only)
+    if !verbose {
+        let mut all_pass_categories = Vec::new();
+        for (category, results) in report.by_category() {
+            if results.iter().all(|r| r.passed) && !results.is_empty() {
+                all_pass_categories.push(format!("{} ({})", category, results.len()));
+            }
+        }
+        if !all_pass_categories.is_empty() {
+            println!("All passed: {}", all_pass_categories.join(", "));
+            println!();
+        }
     }
 
     let status = if report.is_success() { "PASS" } else { "FAIL" };
