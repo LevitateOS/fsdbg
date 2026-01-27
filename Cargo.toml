@@ -1,0 +1,18 @@
+[package]
+name = "fsdbg"
+version = "0.1.0"
+edition = "2021"
+description = "Debug and verify filesystem archives (CPIO, EROFS, ISO) without extraction"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/LevitateOS/fsdbg"
+documentation = "https://github.com/LevitateOS/fsdbg#readme"
+keywords = ["filesystem", "cpio", "initramfs", "debug", "verification"]
+categories = ["command-line-utilities", "filesystem", "development-tools"]
+readme = "README.md"
+
+[dependencies]
+anyhow = "1.0"
+clap = { version = "4.4", features = ["derive"] }
+flate2 = "1.0"
+colored = "2.0"
+humansize = "2.1"
