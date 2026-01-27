@@ -12,8 +12,8 @@ pub const REQUIRED_BINARIES: &[&str] = &["init", "bin/busybox"];
 /// Required directories for live initramfs
 pub const REQUIRED_DIRS: &[&str] = &["dev", "proc", "sys", "mnt", "newroot"];
 
-/// Optional but useful directories
-pub const OPTIONAL_DIRS: &[&str] = &["tmp", "run", "etc"];
+/// Required busybox applets (must have symlinks)
+pub const REQUIRED_APPLETS: &[&str] = &["sh", "mount", "mkdir", "cat", "echo", "switch_root"];
 
 /// Verify a CPIO archive against the live initramfs checklist
 pub fn verify(reader: &CpioReader) -> VerificationReport {
@@ -24,9 +24,7 @@ pub fn verify(reader: &CpioReader) -> VerificationReport {
         if reader.exists(binary) {
             report.add(CheckResult::pass(*binary, CheckCategory::Binary));
         } else {
-            report.add(
-                CheckResult::fail(*binary, CheckCategory::Binary, "Missing"),
-            );
+            report.add(CheckResult::fail(*binary, CheckCategory::Binary, "Missing"));
         }
     }
 
@@ -35,22 +33,7 @@ pub fn verify(reader: &CpioReader) -> VerificationReport {
         if reader.exists(dir) {
             report.add(CheckResult::pass(*dir, CheckCategory::Directory));
         } else {
-            report.add(
-                CheckResult::fail(*dir, CheckCategory::Directory, "Missing"),
-            );
-        }
-    }
-
-    // Check optional directories (non-critical)
-    for dir in OPTIONAL_DIRS {
-        if reader.exists(dir) {
-            report.add(CheckResult::pass(*dir, CheckCategory::Directory));
-        } else {
-            report.add(CheckResult::fail(
-                *dir,
-                CheckCategory::Directory,
-                "Missing (optional)",
-            ));
+            report.add(CheckResult::fail(*dir, CheckCategory::Directory, "Missing"));
         }
     }
 
@@ -61,37 +44,24 @@ pub fn verify(reader: &CpioReader) -> VerificationReport {
             if perms & 0o111 != 0 {
                 report.add(CheckResult::pass("init is executable", CheckCategory::Other));
             } else {
-                report.add(
-                    CheckResult::fail(
-                        "init permissions",
-                        CheckCategory::Other,
-                        format!("init is not executable (mode {:o})", perms),
-                    )
-                    ,
-                );
+                report.add(CheckResult::fail(
+                    "init permissions",
+                    CheckCategory::Other,
+                    format!("init is not executable (mode {:o})", perms),
+                ));
             }
         } else if init.is_symlink() {
-            // init is a symlink - check it points to busybox or similar
             if let Some(ref target) = init.link_target {
-                if target.contains("busybox") {
-                    report.add(CheckResult::pass(
-                        format!("init -> {}", target),
-                        CheckCategory::Symlink,
-                    ));
-                } else {
-                    report.add(CheckResult::pass(
-                        format!("init -> {}", target),
-                        CheckCategory::Symlink,
-                    ));
-                }
+                report.add(CheckResult::pass(
+                    format!("init -> {}", target),
+                    CheckCategory::Symlink,
+                ));
             }
         }
     }
 
-    // Check that busybox has essential applets linked
-    // In a typical busybox initramfs, there are symlinks like /bin/sh -> /busybox
-    let busybox_applets = ["sh", "mount", "mkdir", "cat", "echo", "switch_root"];
-    for applet in busybox_applets {
+    // Check required busybox applets
+    for applet in REQUIRED_APPLETS {
         let paths_to_check = [
             applet.to_string(),
             format!("bin/{}", applet),
@@ -103,15 +73,14 @@ pub fn verify(reader: &CpioReader) -> VerificationReport {
         let found = paths_to_check.iter().any(|p| reader.exists(p));
         if found {
             report.add(CheckResult::pass(
-                format!("busybox applet: {}", applet),
+                format!("applet: {}", applet),
                 CheckCategory::Binary,
             ));
         } else {
-            // Not critical - busybox might be used directly
             report.add(CheckResult::fail(
-                format!("busybox applet: {}", applet),
+                format!("applet: {}", applet),
                 CheckCategory::Binary,
-                "No symlink found (may still work via 'busybox <cmd>')",
+                "Missing",
             ));
         }
     }
