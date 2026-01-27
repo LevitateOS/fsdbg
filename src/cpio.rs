@@ -391,7 +391,9 @@ pub struct CpioStats {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use leviso_cheat_guard::cheat_reviewed;
 
+    #[cheat_reviewed("Unit test for mode_string formatting - no cheat vectors (pure string formatting)")]
     #[test]
     fn test_mode_string() {
         let entry = CpioEntry {
@@ -412,6 +414,7 @@ mod tests {
         assert_eq!(entry.mode_string(), "-rwxr-xr-x");
     }
 
+    #[cheat_reviewed("Unit test for path normalization - no cheat vectors (pure string manipulation)")]
     #[test]
     fn test_normalize_path() {
         assert_eq!(CpioReader::normalize_path("./foo/bar"), "foo/bar");
