@@ -128,7 +128,7 @@ fn cmd_inspect(path: &PathBuf) -> Result<bool> {
                 stats.files, stats.directories, stats.symlinks);
             println!("Total size: {} bytes", stats.total_size);
         }
-        ArchiveFormat::Iso9660 => {
+        ArchiveFormat::Iso => {
             let reader = IsoReader::open(path)?;
             let stats = reader.stats();
 
@@ -138,9 +138,6 @@ fn cmd_inspect(path: &PathBuf) -> Result<bool> {
             println!("Entries: {} files, {} directories, {} symlinks",
                 stats.files, stats.directories, stats.symlinks);
             println!("Total size: {} bytes", stats.total_size);
-        }
-        ArchiveFormat::Unknown => {
-            bail!("Unknown archive format");
         }
     }
 
@@ -170,7 +167,7 @@ fn cmd_verify(path: &PathBuf, checklist_type: &str, failures_only: bool) -> Resu
 
     print_report(&report, failures_only);
 
-    Ok(!report.has_critical_failures())
+    Ok(report.is_success())
 }
 
 fn cmd_check_symlinks(path: &PathBuf) -> Result<bool> {
@@ -194,7 +191,7 @@ fn cmd_check_symlinks(path: &PathBuf) -> Result<bool> {
                 }
             }
         }
-        ArchiveFormat::Iso9660 => {
+        ArchiveFormat::Iso => {
             let reader = IsoReader::open(path)?;
 
             for entry in reader.symlinks() {
@@ -242,7 +239,7 @@ fn cmd_diff(path1: &PathBuf, path2: &PathBuf) -> Result<bool> {
             let reader = CpioReader::open(path1)?;
             reader.entries().iter().map(|e| e.path.clone()).collect()
         }
-        ArchiveFormat::Iso9660 => {
+        ArchiveFormat::Iso => {
             let reader = IsoReader::open(path1)?;
             reader.entries().iter().map(|e| e.path.clone()).collect()
         }
@@ -254,7 +251,7 @@ fn cmd_diff(path1: &PathBuf, path2: &PathBuf) -> Result<bool> {
             let reader = CpioReader::open(path2)?;
             reader.entries().iter().map(|e| e.path.clone()).collect()
         }
-        ArchiveFormat::Iso9660 => {
+        ArchiveFormat::Iso => {
             let reader = IsoReader::open(path2)?;
             reader.entries().iter().map(|e| e.path.clone()).collect()
         }
@@ -303,8 +300,7 @@ fn format_name(format: &ArchiveFormat) -> &'static str {
         ArchiveFormat::Cpio => "CPIO",
         ArchiveFormat::CpioGzip => "CPIO (gzip compressed)",
         ArchiveFormat::Erofs => "EROFS",
-        ArchiveFormat::Iso9660 => "ISO 9660",
-        ArchiveFormat::Unknown => "Unknown",
+        ArchiveFormat::Iso => "ISO 9660",
     }
 }
 
@@ -329,13 +325,7 @@ fn print_report(report: &VerificationReport, failures_only: bool) {
                 continue;
             }
 
-            let status = if result.passed {
-                "[PASS]"
-            } else if result.critical {
-                "[FAIL] [CRITICAL]"
-            } else {
-                "[FAIL]"
-            };
+            let status = if result.passed { "[PASS]" } else { "[FAIL]" };
 
             if let Some(ref msg) = result.message {
                 println!("  {} {} - {}", status, result.item, msg);
@@ -346,17 +336,6 @@ fn print_report(report: &VerificationReport, failures_only: bool) {
         println!();
     }
 
-    let status = if report.has_critical_failures() {
-        "FAIL"
-    } else if report.is_success() {
-        "PASS"
-    } else {
-        "PASS (with warnings)"
-    };
-
+    let status = if report.is_success() { "PASS" } else { "FAIL" };
     println!("Result: {} ({}/{} checks passed)", status, report.passed(), report.total());
-
-    if report.critical_failed() > 0 {
-        println!("Critical failures: {}", report.critical_failed());
-    }
 }

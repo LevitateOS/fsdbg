@@ -129,7 +129,7 @@ pub fn verify(reader: &CpioReader) -> VerificationReport {
         } else {
             report.add(
                 CheckResult::fail(*binary, CheckCategory::Binary, "Missing")
-                    .critical(),
+                    ,
             );
         }
     }
@@ -142,7 +142,7 @@ pub fn verify(reader: &CpioReader) -> VerificationReport {
         } else {
             report.add(
                 CheckResult::fail(*unit, CheckCategory::Unit, "Missing")
-                    .critical(),
+                    ,
             );
         }
     }
@@ -162,26 +162,26 @@ pub fn verify(reader: &CpioReader) -> VerificationReport {
                             format!("{} -> {}", link, target),
                             CheckCategory::Symlink,
                             format!("Points to '{}' instead", actual_target),
-                        ).critical());
+                        ));
                     }
                 } else {
                     report.add(CheckResult::fail(
                         format!("{} -> {}", link, target),
                         CheckCategory::Symlink,
                         "Symlink has no target",
-                    ).critical());
+                    ));
                 }
             } else {
                 report.add(CheckResult::fail(
                     *link,
                     CheckCategory::Symlink,
                     "Exists but is not a symlink",
-                ).critical());
+                ));
             }
         } else {
             report.add(
                 CheckResult::fail(*link, CheckCategory::Symlink, "Missing")
-                    .critical(),
+                    ,
             );
         }
     }
@@ -193,7 +193,7 @@ pub fn verify(reader: &CpioReader) -> VerificationReport {
         } else {
             report.add(
                 CheckResult::fail(*etc_file, CheckCategory::EtcFile, "Missing")
-                    .critical(),
+                    ,
             );
         }
     }
@@ -206,7 +206,7 @@ pub fn verify(reader: &CpioReader) -> VerificationReport {
         } else {
             report.add(
                 CheckResult::fail(*rule, CheckCategory::UdevRule, "Missing (CRITICAL for /dev/disk/by-uuid)")
-                    .critical(),
+                    ,
             );
         }
     }
@@ -229,20 +229,13 @@ pub fn verify(reader: &CpioReader) -> VerificationReport {
             continue;
         }
 
-        if reader.symlink_target_exists(entry) {
-            // Only report broken symlinks, don't add passing for every symlink
-        } else if let Some(ref target) = entry.link_target {
-            // Check if it's a library symlink (critical)
-            let is_lib = entry.path.contains("lib") && entry.path.contains(".so");
-            let result = CheckResult::fail(
-                format!("{} -> {}", entry.path, target),
-                CheckCategory::Library,
-                "Target does not exist in archive",
-            );
-            if is_lib {
-                report.add(result.critical());
-            } else {
-                report.add(result);
+        if !reader.symlink_target_exists(entry) {
+            if let Some(ref target) = entry.link_target {
+                report.add(CheckResult::fail(
+                    format!("{} -> {}", entry.path, target),
+                    CheckCategory::Library,
+                    "Target does not exist in archive",
+                ));
             }
         }
     }

@@ -96,14 +96,7 @@ pub fn verify(reader: &CpioReader) -> VerificationReport {
         if reader.exists(binary) {
             report.add(CheckResult::pass(*binary, CheckCategory::Binary));
         } else {
-            // recipe might not exist yet in early builds
-            let critical = !binary.contains("recipe");
-            let result = CheckResult::fail(*binary, CheckCategory::Binary, "Missing");
-            if critical {
-                report.add(result.critical());
-            } else {
-                report.add(result);
-            }
+            report.add(CheckResult::fail(*binary, CheckCategory::Binary, "Missing"));
         }
     }
 
@@ -122,19 +115,7 @@ pub fn verify(reader: &CpioReader) -> VerificationReport {
         if reader.exists(dir) {
             report.add(CheckResult::pass(*dir, CheckCategory::Directory));
         } else {
-            // Some dirs might be symlinks (bin -> usr/bin)
-            let is_compat_symlink = matches!(*dir, "bin" | "sbin" | "lib" | "lib64");
-            if is_compat_symlink {
-                report.add(CheckResult::fail(
-                    *dir,
-                    CheckCategory::Directory,
-                    "Missing (may be a symlink)",
-                ));
-            } else {
-                report.add(
-                    CheckResult::fail(*dir, CheckCategory::Directory, "Missing").critical(),
-                );
-            }
+            report.add(CheckResult::fail(*dir, CheckCategory::Directory, "Missing"));
         }
     }
 
@@ -143,9 +124,7 @@ pub fn verify(reader: &CpioReader) -> VerificationReport {
         if reader.exists(etc_file) {
             report.add(CheckResult::pass(*etc_file, CheckCategory::EtcFile));
         } else {
-            report.add(
-                CheckResult::fail(*etc_file, CheckCategory::EtcFile, "Missing").critical(),
-            );
+            report.add(CheckResult::fail(*etc_file, CheckCategory::EtcFile, "Missing"));
         }
     }
 

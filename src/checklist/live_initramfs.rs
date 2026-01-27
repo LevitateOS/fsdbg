@@ -25,7 +25,7 @@ pub fn verify(reader: &CpioReader) -> VerificationReport {
             report.add(CheckResult::pass(*binary, CheckCategory::Binary));
         } else {
             report.add(
-                CheckResult::fail(*binary, CheckCategory::Binary, "Missing").critical(),
+                CheckResult::fail(*binary, CheckCategory::Binary, "Missing"),
             );
         }
     }
@@ -36,7 +36,7 @@ pub fn verify(reader: &CpioReader) -> VerificationReport {
             report.add(CheckResult::pass(*dir, CheckCategory::Directory));
         } else {
             report.add(
-                CheckResult::fail(*dir, CheckCategory::Directory, "Missing").critical(),
+                CheckResult::fail(*dir, CheckCategory::Directory, "Missing"),
             );
         }
     }
@@ -67,7 +67,7 @@ pub fn verify(reader: &CpioReader) -> VerificationReport {
                         CheckCategory::Other,
                         format!("init is not executable (mode {:o})", perms),
                     )
-                    .critical(),
+                    ,
                 );
             }
         } else if init.is_symlink() {

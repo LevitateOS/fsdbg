@@ -15,7 +15,6 @@ pub struct CheckResult {
     pub passed: bool,
     pub message: Option<String>,
     pub category: CheckCategory,
-    pub critical: bool,
 }
 
 impl CheckResult {
@@ -25,7 +24,6 @@ impl CheckResult {
             passed: true,
             message: None,
             category,
-            critical: false,
         }
     }
 
@@ -35,13 +33,7 @@ impl CheckResult {
             passed: false,
             message: Some(message.into()),
             category,
-            critical: false,
         }
-    }
-
-    pub fn critical(mut self) -> Self {
-        self.critical = true;
-        self
     }
 }
 
@@ -102,20 +94,12 @@ impl VerificationReport {
         self.results.iter().filter(|r| !r.passed).count()
     }
 
-    pub fn critical_failed(&self) -> usize {
-        self.results.iter().filter(|r| !r.passed && r.critical).count()
-    }
-
     pub fn total(&self) -> usize {
         self.results.len()
     }
 
     pub fn is_success(&self) -> bool {
         self.results.iter().all(|r| r.passed)
-    }
-
-    pub fn has_critical_failures(&self) -> bool {
-        self.results.iter().any(|r| !r.passed && r.critical)
     }
 
     /// Group results by category
