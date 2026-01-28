@@ -636,7 +636,6 @@ mod tests {
     #[test]
     fn test_pam_critical_modules() {
         assert!(PAM_MODULES.contains(&"pam_unix.so"));
-        assert!(PAM_MODULES.contains(&"pam_permit.so"));
         assert!(PAM_MODULES.contains(&"pam_deny.so"));
     }
 

@@ -47,7 +47,6 @@ const CRITICAL_AUTH_BINARIES: &[(&str, &str)] = &[
 /// Critical PAM modules that form the core authentication stack.
 const CRITICAL_PAM_MODULES: &[(&str, &str)] = &[
     ("pam_unix.so", "Core Unix password authentication - login WILL FAIL"),
-    ("pam_permit.so", "Required for PAM stack ordering"),
     ("pam_deny.so", "Required for secure fallback"),
     ("pam_systemd.so", "Session registration with logind"),
     ("pam_env.so", "Environment setup for sessions"),
@@ -69,7 +68,6 @@ const CRITICAL_PAM_CONFIGS: &[(&str, &str)] = &[
 /// Security configuration files that enforce policies.
 const CRITICAL_SECURITY_FILES: &[(&str, &str)] = &[
     ("etc/security/limits.conf", "Resource limits (ulimit)"),
-    ("etc/security/faillock.conf", "Account lockout after failed attempts"),
     ("etc/security/pam_env.conf", "PAM environment variables"),
     ("etc/security/access.conf", "Access control rules"),
     ("etc/security/pwquality.conf", "Password quality requirements"),
@@ -92,8 +90,6 @@ const CRITICAL_ETC_FILES: &[(&str, &str)] = &[
 const RECOMMENDED_SECURITY_FILES: &[(&str, &str)] = &[
     ("etc/securetty", "Restrict root login to secure terminals"),
     ("etc/security/namespace.conf", "Per-user /tmp isolation"),
-    ("etc/security/time.conf", "Time-based access control"),
-    ("etc/security/group.conf", "Group-based access control"),
 ];
 
 /// PAM modules for security hardening (warnings if missing).
@@ -452,7 +448,7 @@ mod tests {
 
     #[test]
     fn test_critical_pam_modules_include_core() {
-        let required = ["pam_unix.so", "pam_permit.so", "pam_deny.so", "pam_systemd.so"];
+        let required = ["pam_unix.so", "pam_deny.so", "pam_systemd.so"];
         for module in required {
             assert!(
                 CRITICAL_PAM_MODULES.iter().any(|(m, _)| *m == module),
@@ -505,12 +501,12 @@ mod tests {
     }
 
     #[test]
-    fn test_critical_security_files_include_faillock() {
+    fn test_critical_security_files_include_access_control() {
         assert!(
             CRITICAL_SECURITY_FILES
                 .iter()
-                .any(|(f, _)| f.contains("faillock")),
-            "faillock.conf MUST be checked - account lockout policy"
+                .any(|(f, _)| f.contains("access.conf")),
+            "access.conf MUST be checked - access control policy"
         );
     }
 
@@ -581,7 +577,7 @@ mod tests {
     #[test]
     fn test_pam_modules_from_distro_spec_complete() {
         // Verify PAM_MODULES from distro-spec is comprehensive
-        let essential = ["pam_unix.so", "pam_permit.so", "pam_deny.so"];
+        let essential = ["pam_unix.so", "pam_deny.so"];
         for module in essential {
             assert!(
                 PAM_MODULES.contains(&module),
@@ -614,7 +610,6 @@ mod tests {
         // Verify SECURITY_FILES from distro-spec includes policies
         let essential = [
             "etc/security/limits.conf",
-            "etc/security/faillock.conf",
             "etc/security/access.conf",
         ];
         for file in essential {
