@@ -73,8 +73,33 @@ src/
     ├── mod.rs                  # Checklist trait
     ├── install_initramfs.rs    # systemd initramfs requirements
     ├── live_initramfs.rs       # busybox initramfs requirements
+    ├── auth_audit.rs           # **Authentication subsystem verification**
+    ├── iso.rs                  # ISO structure verification
     └── rootfs.rs               # Full rootfs requirements
 ```
+
+### Authentication Audit Checklist (auth_audit.rs)
+
+Comprehensive verification of authentication and authorization components:
+
+**Critical Checks** (failures = system cannot boot):
+- `/usr/sbin/unix_chkpwd` - pam_unix.so hardcoded dependency
+- `/usr/sbin/passwd`, `/usr/sbin/chpasswd` - password management
+- `/usr/bin/sudo`, `/usr/bin/su` - privilege escalation
+- PAM modules (18 total) - authentication stack
+- PAM configs (18 total) - login services (sshd, login, sudo, etc.)
+- Security files (5 total) - policy enforcement
+
+**Optional Hardening** (informational warnings):
+- `/etc/securetty` - restrict root to secure terminals
+- Per-user `/tmp` isolation
+- Hardening modules (faillock, pwquality, securetty)
+
+**Why separate checklist**:
+- Authentication is critical for boot and first login
+- Single source of truth: imports from `distro_spec::shared::auth`
+- 19 tests verify all components from distro-spec match actual needs
+- Prevents regressions in auth subsystem
 
 ## Adding New Checklists
 

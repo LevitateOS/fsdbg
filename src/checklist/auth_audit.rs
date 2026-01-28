@@ -23,8 +23,8 @@
 use super::{CheckCategory, CheckResult, VerificationReport};
 use crate::cpio::CpioReader;
 
-// Import from SINGLE SOURCE OF TRUTH
-use distro_spec::shared::{
+// Import from SINGLE SOURCE OF TRUTH (auth subsystem)
+use distro_spec::shared::auth::{
     AUTH_BIN, AUTH_SBIN, PAM_CONFIGS, PAM_MODULES, SECURITY_FILES, SHADOW_SBIN, SUDO_LIBS,
 };
 
