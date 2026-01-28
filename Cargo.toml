@@ -18,6 +18,8 @@ flate2 = "1.0"
 colored = "2.0"
 humansize = "2.1"
 leviso-cheat-guard = { path = "../cheat-guard" }
+libc = "0.2"
+tempfile = "3.10"
 
 [dev-dependencies]
 leviso-cheat-test = { path = "../cheat-test" }

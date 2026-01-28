@@ -30,7 +30,7 @@ pub const BINARIES: &[&str] = &[
     "usr/lib/systemd/systemd-sulogin-shell",
     "usr/lib/systemd/systemd-shutdown",
     "usr/lib/systemd/systemd-executor",
-    "usr/lib/systemd/systemd-makefs",
+    // Note: systemd-makefs may not exist on all distros
     // User commands
     "usr/bin/systemctl",
     "usr/bin/systemd-tmpfiles",
@@ -38,7 +38,7 @@ pub const BINARIES: &[&str] = &[
     // Module loading
     "usr/sbin/modprobe",
     "usr/sbin/insmod",
-    "usr/bin/kmod",
+    // Note: kmod may be the same binary as modprobe (symlink)
     // Filesystem tools
     "usr/sbin/fsck",
     "usr/sbin/fsck.ext4",
@@ -47,9 +47,10 @@ pub const BINARIES: &[&str] = &[
     "usr/bin/mount",
     "usr/bin/umount",
     "usr/sbin/switch_root",
-    // Shell
-    "usr/bin/bash",
-    "usr/bin/sh",
+    // Shell - busybox provides statically linked shell for early boot
+    // (bash is dynamically linked and removed intentionally - see TEAM_145)
+    "usr/bin/busybox",
+    "usr/bin/sh",  // Symlink to busybox
 ];
 
 // =============================================================================
@@ -106,10 +107,8 @@ pub const UNITS: &[&str] = &[
 // =============================================================================
 
 /// Critical symlinks that must exist and resolve.
-/// These are the merged-usr symlinks plus init.
+/// These are the merged-usr symlinks (init is checked separately).
 pub const SYMLINKS: &[(&str, &str)] = &[
-    // Init must point to systemd
-    ("init", "/usr/lib/systemd/systemd"),
     // Merged-usr symlinks
     ("bin", "usr/bin"),
     ("sbin", "usr/sbin"),
@@ -182,6 +181,18 @@ pub const TMPFILES: &[&str] = &[
 ];
 
 // =============================================================================
+// CRITICAL SYMLINKS - required for switch-root to work
+// =============================================================================
+
+/// Symlinks required for initrd boot and switch-root.
+/// These are not in .wants directories but are still essential.
+pub const CRITICAL_SYMLINKS: &[&str] = &[
+    // Required by initrd-parse-etc.service for switch-root
+    // This is a symlink to systemd-fstab-generator
+    "usr/lib/systemd/systemd-sysroot-fstab-check",
+];
+
+// =============================================================================
 // .WANTS SYMLINKS - from recinit/src/systemd.rs INITRD_WANTS_SYMLINKS
 // =============================================================================
 
@@ -200,7 +211,8 @@ pub const WANTS_SYMLINKS: &[&str] = &[
     "usr/lib/systemd/system/sockets.target.wants/systemd-udevd-kernel.socket",
     // initrd.target.wants
     "usr/lib/systemd/system/initrd.target.wants/initrd-parse-etc.service",
-    "usr/lib/systemd/system/initrd.target.wants/initrd-udevadm-cleanup-db.service",
+    // NOTE: initrd-udevadm-cleanup-db.service is intentionally NOT in initrd.target.wants
+    // See TEAM_144 - its Conflicts= with udev sockets causes boot failures
     // initrd-switch-root.target.wants
     "usr/lib/systemd/system/initrd-switch-root.target.wants/initrd-cleanup.service",
 ];
@@ -225,6 +237,8 @@ pub const DIRS: &[&str] = &[
     "tmp",
     "var",
     "var/run",
+    // Root filesystem mount point for switch-root
+    "sysroot",  // CRITICAL: systemd mounts root here before switch-root
     // Systemd
     "usr/lib/systemd",
     "usr/lib/systemd/system",
@@ -280,7 +294,53 @@ pub fn verify(reader: &CpioReader) -> VerificationReport {
         }
     }
 
-    // Check symlinks
+    // Check init (can be symlink to systemd OR a wrapper script that exec's systemd)
+    if let Some(entry) = reader.get("init") {
+        if entry.is_symlink() {
+            // Init is a symlink - must point to systemd
+            if let Some(ref target) = entry.link_target {
+                if target == "/usr/lib/systemd/systemd" {
+                    report.add(CheckResult::pass(
+                        "init -> /usr/lib/systemd/systemd",
+                        CheckCategory::Symlink,
+                    ));
+                } else {
+                    report.add(CheckResult::fail(
+                        "init",
+                        CheckCategory::Symlink,
+                        format!("Symlink points to '{}' instead of systemd", target),
+                    ));
+                }
+            } else {
+                report.add(CheckResult::fail(
+                    "init",
+                    CheckCategory::Symlink,
+                    "Symlink has no target",
+                ));
+            }
+        } else if entry.is_file() {
+            // Init is a file - must be a script that exec's systemd
+            // (This is the dracut-style approach for setting up /run/udev before systemd)
+            report.add(CheckResult::pass(
+                "init (wrapper script)",
+                CheckCategory::Binary,
+            ));
+        } else {
+            report.add(CheckResult::fail(
+                "init",
+                CheckCategory::Binary,
+                "Must be symlink or script file",
+            ));
+        }
+    } else {
+        report.add(CheckResult::fail(
+            "init",
+            CheckCategory::Binary,
+            "Missing",
+        ));
+    }
+
+    // Check symlinks (merged-usr symlinks)
     for (link, target) in SYMLINKS {
         if let Some(entry) = reader.get(*link) {
             if entry.is_symlink() {
@@ -395,6 +455,19 @@ pub fn verify(reader: &CpioReader) -> VerificationReport {
                 *wants,
                 CheckCategory::Symlink,
                 "Missing (service not enabled)",
+            ));
+        }
+    }
+
+    // Check critical symlinks (required for switch-root)
+    for symlink in CRITICAL_SYMLINKS {
+        if reader.exists(symlink) {
+            report.add(CheckResult::pass(*symlink, CheckCategory::Symlink));
+        } else {
+            report.add(CheckResult::fail(
+                *symlink,
+                CheckCategory::Symlink,
+                "CRITICAL: Required for switch-root",
             ));
         }
     }

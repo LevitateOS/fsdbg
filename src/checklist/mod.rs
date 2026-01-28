@@ -6,6 +6,7 @@ pub mod auth_audit;
 pub mod install_initramfs;
 pub mod iso;
 pub mod live_initramfs;
+pub mod qcow2;
 pub mod rootfs;
 
 use std::fmt;
@@ -149,6 +150,8 @@ pub enum ChecklistType {
     Iso,
     /// Authentication audit (PAM, sudo, login security)
     AuthAudit,
+    /// Qcow2 VM image (mounted filesystem)
+    Qcow2,
 }
 
 impl ChecklistType {
@@ -161,6 +164,7 @@ impl ChecklistType {
             "rootfs" | "root" => Some(ChecklistType::Rootfs),
             "iso" => Some(ChecklistType::Iso),
             "auth-audit" | "auth_audit" | "auth" => Some(ChecklistType::AuthAudit),
+            "qcow2" | "qcow" | "vm" => Some(ChecklistType::Qcow2),
             _ => None,
         }
     }
@@ -172,6 +176,7 @@ impl ChecklistType {
             ChecklistType::Rootfs => "Rootfs",
             ChecklistType::Iso => "Live ISO",
             ChecklistType::AuthAudit => "Authentication Audit",
+            ChecklistType::Qcow2 => "Qcow2 Image",
         }
     }
 }
