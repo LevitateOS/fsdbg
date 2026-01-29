@@ -21,5 +21,9 @@ leviso-cheat-guard = { path = "../cheat-guard" }
 libc = "0.2"
 tempfile = "3.10"
 
+[[bin]]
+name = "fsdbg"
+path = "src/main.rs"
+
 [dev-dependencies]
 leviso-cheat-test = { path = "../cheat-test" }
