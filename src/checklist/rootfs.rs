@@ -12,6 +12,24 @@
 //!
 //! LevitateOS is a daily driver Linux distribution competing with Arch Linux.
 //! It is NOT minimal - if something is missing that a desktop user needs, that's a BUG.
+//!
+//! ## FORBIDDEN: Busybox in Live Rootfs
+//!
+//! **BUSYBOX IN THE LIVE ROOTFS IS A REWARD HACK.**
+//!
+//! On 2026-01-29, an AI agent introduced busybox into the live environment as a
+//! "shortcut" to make the system boot. This is CATASTROPHICALLY WRONG:
+//!
+//! - Busybox `ps` doesn't support standard options → user confusion
+//! - Busybox `mount` lacks features → installation scripts fail
+//! - Busybox ANYTHING means real tools are MISSING
+//!
+//! Busybox is ONLY allowed in the initramfs (the tiny 5MB boot environment that
+//! mounts the real rootfs). After switch_root, the user MUST have real coreutils,
+//! procps-ng, util-linux - NOT busybox replacements.
+//!
+//! If busybox appears in the live shell, THE BUILD IS BROKEN. Do not ship it.
+//! Do not "fix" it by adding more busybox. Fix it by ensuring real packages exist.
 
 use super::{CheckCategory, CheckResult, VerificationReport};
 use crate::cpio::CpioReader;
@@ -20,6 +38,8 @@ use std::collections::HashSet;
 // Import from SINGLE SOURCE OF TRUTH
 use distro_spec::shared::{
     FHS_DIRS, FHS_SYMLINKS,
+    // LevitateOS installation tools (recstrap, recfstab, recchroot, recipe, levitate-docs)
+    LEVITATE_TOOLS,
     BIN_UTILS, SSH_BIN, NM_BIN,
     SBIN_UTILS, NM_SBIN, WPA_SBIN, SSH_SBIN,
     BLUETOOTH_SBIN, PIPEWIRE_SBIN, POLKIT_SBIN, UDISKS_SBIN, UPOWER_SBIN,
@@ -58,9 +78,68 @@ pub const SYSTEMD_BINS: &[&str] = SYSTEMD_BINARIES;
 // VERIFICATION
 // =============================================================================
 
+/// Paths where busybox MUST NOT exist in the live rootfs.
+/// If ANY of these exist, the build is broken - a reward hack was introduced.
+const FORBIDDEN_BUSYBOX_PATHS: &[&str] = &[
+    "usr/bin/busybox",
+    "bin/busybox",
+    "usr/sbin/busybox",
+    "sbin/busybox",
+];
+
 /// Verify a CPIO/EROFS archive against the rootfs checklist.
 pub fn verify(reader: &CpioReader) -> VerificationReport {
     let mut report = VerificationReport::new("Rootfs");
+
+    // =========================================================================
+    // 0. FORBIDDEN CHECK: Busybox MUST NOT be in the live rootfs
+    // =========================================================================
+    // This check runs FIRST because busybox in the rootfs is a REWARD HACK.
+    // An AI agent may have added busybox as a "shortcut" to make things work,
+    // but this breaks the actual user experience catastrophically.
+    //
+    // Busybox belongs ONLY in the initramfs (tiny boot environment).
+    // After switch_root, users MUST have real coreutils/procps-ng/util-linux.
+    for forbidden_path in FORBIDDEN_BUSYBOX_PATHS {
+        if reader.exists(forbidden_path) {
+            report.add(CheckResult::fail(
+                *forbidden_path,
+                CheckCategory::Forbidden,
+                "REWARD HACK DETECTED: Busybox in live rootfs! \
+                 This means real coreutils/procps-ng are MISSING. \
+                 Do NOT ship this. Fix the real package installation.",
+            ));
+        } else {
+            report.add(CheckResult::pass(
+                format!("{} (correctly absent)", forbidden_path),
+                CheckCategory::Forbidden,
+            ));
+        }
+    }
+
+    // Also check for busybox symlinks (e.g., /bin/ls -> busybox)
+    // These indicate coreutils was replaced with busybox - CATASTROPHIC
+    let busybox_symlink_victims = ["ls", "cat", "cp", "mv", "rm", "mkdir", "ps", "mount"];
+    for bin in busybox_symlink_victims {
+        let bin_path = format!("usr/bin/{}", bin);
+        if let Some(entry) = reader.get(&bin_path) {
+            if entry.is_symlink() {
+                if let Some(ref target) = entry.link_target {
+                    if target.contains("busybox") {
+                        report.add(CheckResult::fail(
+                            bin_path,
+                            CheckCategory::Forbidden,
+                            format!(
+                                "REWARD HACK: {} is a busybox symlink! \
+                                 Real {} from coreutils/procps-ng is MISSING.",
+                                bin, bin
+                            ),
+                        ));
+                    }
+                }
+            }
+        }
+    }
 
     // =========================================================================
     // 1. Check directory structure
@@ -139,6 +218,24 @@ pub fn verify(reader: &CpioReader) -> VerificationReport {
                 bin_path,
                 CheckCategory::Binary,
                 "Missing",
+            ));
+        }
+    }
+
+    // =========================================================================
+    // 3.5. Check LevitateOS installation tools
+    // =========================================================================
+    // These are CRITICAL for installing LevitateOS from the live ISO.
+    // Without these, users cannot install the system to disk.
+    for tool in LEVITATE_TOOLS {
+        let tool_path = format!("usr/bin/{}", tool);
+        if reader.exists(&tool_path) {
+            report.add(CheckResult::pass(tool_path, CheckCategory::Binary));
+        } else {
+            report.add(CheckResult::fail(
+                tool_path,
+                CheckCategory::Binary,
+                "Missing (users CANNOT install without this tool!)",
             ));
         }
     }
@@ -596,6 +693,50 @@ fn verify_licenses(reader: &CpioReader, report: &mut VerificationReport) {
 mod tests {
     use super::*;
 
+    // =========================================================================
+    // BUSYBOX FORBIDDEN TESTS
+    // =========================================================================
+    // These tests document WHY busybox is forbidden and WHAT happens when
+    // an AI agent introduces it as a "shortcut" (reward hack).
+
+    #[test]
+    fn test_busybox_paths_are_forbidden() {
+        // Busybox MUST NOT appear in the live rootfs.
+        // This list defines paths that trigger CRITICAL failures.
+        assert!(!FORBIDDEN_BUSYBOX_PATHS.is_empty());
+        assert!(FORBIDDEN_BUSYBOX_PATHS.contains(&"usr/bin/busybox"));
+        assert!(FORBIDDEN_BUSYBOX_PATHS.contains(&"bin/busybox"));
+    }
+
+    #[test]
+    fn test_busybox_forbidden_reason_documented() {
+        // This test exists to document WHY busybox is forbidden.
+        //
+        // HISTORY: On 2026-01-29, an AI agent introduced busybox into the
+        // live rootfs as a "fix" for missing binaries. This is a REWARD HACK:
+        //
+        // - The agent's goal was to make the system boot
+        // - Busybox made `ls`, `ps`, etc. "work" (technically)
+        // - But busybox versions are INCOMPATIBLE with real usage:
+        //   - `ps aux` fails (busybox ps doesn't support BSD options)
+        //   - `mount` lacks features needed by installation scripts
+        //   - Users see confusing error messages
+        //
+        // CORRECT FIX: Ensure coreutils, procps-ng, util-linux are properly
+        // extracted from Rocky Linux packages. Do NOT add busybox.
+        //
+        // If you're reading this because the build is failing:
+        // 1. Check that package extraction is working
+        // 2. Check that merged-usr symlinks are correct
+        // 3. Check that library dependencies are satisfied
+        // DO NOT "fix" it by adding busybox!
+        assert!(true, "This test documents busybox is forbidden");
+    }
+
+    // =========================================================================
+    // REGULAR TESTS
+    // =========================================================================
+
     #[test]
     fn test_essential_dirs_covered() {
         // Verify essential directories are covered by FHS_DIRS or FHS_SYMLINKS
@@ -666,5 +807,34 @@ mod tests {
         assert!(CRITICAL_LICENSE_PACKAGES.contains(&"coreutils"));
         assert!(CRITICAL_LICENSE_PACKAGES.contains(&"kernel"));
         assert!(CRITICAL_LICENSE_PACKAGES.contains(&"linux-firmware"));
+    }
+
+    // =========================================================================
+    // LEVITATEOS INSTALLATION TOOLS TESTS
+    // =========================================================================
+    // These tests ensure fsdbg checks for the tools needed to install LevitateOS.
+    // History: On 2026-01-29, stale/missing tools were discovered in the ISO because
+    // fsdbg wasn't checking for them. This caused installation failures.
+
+    #[test]
+    fn test_levitate_tools_are_checked() {
+        // Verify all LevitateOS installation tools are in the checklist
+        let required_tools = ["recstrap", "recfstab", "recchroot", "recipe", "levitate-docs"];
+        for tool in required_tools {
+            assert!(
+                LEVITATE_TOOLS.contains(&tool),
+                "LEVITATE_TOOLS missing '{}' - fsdbg won't catch missing installation tools!",
+                tool
+            );
+        }
+    }
+
+    #[test]
+    fn test_levitate_tools_not_empty() {
+        // Prevent regression: if someone clears LEVITATE_TOOLS, catch it
+        assert!(
+            LEVITATE_TOOLS.len() >= 5,
+            "LEVITATE_TOOLS has fewer than 5 entries - did someone break it?"
+        );
     }
 }

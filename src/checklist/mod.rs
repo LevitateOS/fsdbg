@@ -52,6 +52,8 @@ pub enum CheckCategory {
     Library,
     KernelModule,
     License,
+    /// Items that MUST NOT be present (e.g., busybox in live rootfs)
+    Forbidden,
     Other,
 }
 
@@ -67,6 +69,7 @@ impl fmt::Display for CheckCategory {
             CheckCategory::Library => write!(f, "Libraries"),
             CheckCategory::KernelModule => write!(f, "Kernel Modules"),
             CheckCategory::License => write!(f, "Licenses"),
+            CheckCategory::Forbidden => write!(f, "FORBIDDEN (must NOT exist)"),
             CheckCategory::Other => write!(f, "Other"),
         }
     }
@@ -124,7 +127,8 @@ impl VerificationReport {
                 CheckCategory::Library => 6,
                 CheckCategory::KernelModule => 7,
                 CheckCategory::License => 8,
-                CheckCategory::Other => 9,
+                CheckCategory::Forbidden => 9,
+                CheckCategory::Other => 10,
             };
             groups
                 .entry(key)
