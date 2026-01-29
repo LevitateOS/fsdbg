@@ -44,8 +44,8 @@ use distro_spec::shared::{
     SBIN_UTILS, NM_SBIN, WPA_SBIN, SSH_SBIN,
     BLUETOOTH_SBIN, PIPEWIRE_SBIN, POLKIT_SBIN, UDISKS_SBIN, UPOWER_SBIN,
     SYSTEMD_BINARIES,
-    ESSENTIAL_UNITS, NM_UNITS, WPA_UNITS,
-    BLUETOOTH_UNITS, PIPEWIRE_UNITS, POLKIT_UNITS, UDISKS_UNITS, UPOWER_UNITS,
+    ESSENTIAL_UNITS,
+    ALL_SYSTEMD_UNITS,  // Consolidated list of ALL systemd units
     UDEV_HELPERS,
     ETC_FILES,
     CRITICAL_LIBS,
@@ -294,47 +294,66 @@ pub fn verify(reader: &CpioReader) -> VerificationReport {
     }
 
     // =========================================================================
-    // 6. Check systemd units
+    // 6. Check systemd units (ALL OF THEM)
     // =========================================================================
-    // Combine all unit lists, filtering out NetworkManager-specific ones that may vary
-    let all_units: Vec<&str> = ESSENTIAL_UNITS.iter()
-        .chain(NM_UNITS.iter())
-        .chain(WPA_UNITS.iter())
-        .chain(BLUETOOTH_UNITS.iter())
-        .chain(POLKIT_UNITS.iter())
-        .chain(UDISKS_UNITS.iter())
-        .chain(UPOWER_UNITS.iter())
-        .copied()
-        // Filter out systemd-networkd/resolved units - LevitateOS uses NetworkManager
-        .filter(|u| !u.contains("networkd") && !u.contains("resolved"))
-        // Filter out system.slice - auto-generated at runtime
-        .filter(|u| *u != "system.slice")
-        .collect();
+    // Use consolidated ALL_SYSTEMD_UNITS from distro-spec
+    // This includes:
+    // - Essential targets (multi-user.target, halt.target, poweroff.target, reboot.target)
+    // - All core services (systemd-journald, systemd-udev, fsck, etc.)
+    // - Login services (getty, serial-getty)
+    // - Networking (NetworkManager, wpa_supplicant)
+    // - Audio (PipeWire)
+    // - Bluetooth, polkit, udisks, upower
+    // - SSH (sshd)
+    // - D-Bus activation symlinks
 
-    // PipeWire units are in user/ directory, not system/
-    let pipewire_user_units: Vec<&str> = PIPEWIRE_UNITS.iter().copied().collect();
+    let mut missing_units = Vec::new();
+    let mut found_units = Vec::new();
 
-    for unit in &all_units {
-        let unit_path = format!("usr/lib/systemd/system/{}", unit);
+    for unit in ALL_SYSTEMD_UNITS {
+        // PipeWire units are in user/ directory
+        let unit_path = if unit.contains("pipewire") || unit.contains("wireplumber") {
+            format!("usr/lib/systemd/user/{}", unit)
+        } else {
+            format!("usr/lib/systemd/system/{}", unit)
+        };
+
         if reader.exists(&unit_path) {
+            found_units.push(*unit);
             report.add(CheckResult::pass(*unit, CheckCategory::Unit));
         } else {
-            report.add(CheckResult::fail(*unit, CheckCategory::Unit, "Missing"));
+            missing_units.push(*unit);
+            report.add(CheckResult::fail(
+                *unit,
+                CheckCategory::Unit,
+                if unit.contains("halt") || unit.contains("poweroff") || unit.contains("reboot") {
+                    "CRITICAL: Missing shutdown target!"
+                } else {
+                    "Missing"
+                }
+            ));
         }
     }
 
-    // Check PipeWire user units (in user/ directory)
-    for unit in &pipewire_user_units {
-        let unit_path = format!("usr/lib/systemd/user/{}", unit);
-        if reader.exists(&unit_path) {
-            report.add(CheckResult::pass(format!("user/{}", unit), CheckCategory::Unit));
-        } else {
-            report.add(CheckResult::fail(
-                format!("user/{}", unit),
-                CheckCategory::Unit,
-                "Missing (PipeWire audio broken)",
-            ));
-        }
+    // Summary report
+    let total_units = ALL_SYSTEMD_UNITS.len();
+    report.add(CheckResult::pass(
+        format!("Systemd units: {}/{} found", found_units.len(), total_units),
+        CheckCategory::Unit,
+    ));
+
+    if !missing_units.is_empty() {
+        report.add(CheckResult::fail(
+            format!("Missing {} unit(s)", missing_units.len()),
+            CheckCategory::Unit,
+            format!(
+                "Missing units: {}",
+                missing_units.iter()
+                    .map(|u| u.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
+        ));
     }
 
     // =========================================================================
@@ -783,6 +802,54 @@ mod tests {
         assert!(ESSENTIAL_UNITS.contains(&"multi-user.target"));
         assert!(ESSENTIAL_UNITS.contains(&"getty@.service"));
         assert!(ESSENTIAL_UNITS.contains(&"systemd-journald.service"));
+    }
+
+    // CRITICAL REGRESSION TEST: Shutdown service files must always be present
+    // Bug: On 2026-01-29, systemd-halt.service, systemd-poweroff.service, and
+    // systemd-reboot.service were completely missing from the ISO, causing
+    // "Unit systemd-halt or poweroff not found" errors when users tried to shutdown.
+    // This test prevents that from ever happening again.
+    #[test]
+    fn test_shutdown_services_in_spec() {
+        let critical_shutdown_services = [
+            "systemd-halt.service",
+            "systemd-poweroff.service",
+            "systemd-reboot.service",
+        ];
+
+        for service in critical_shutdown_services {
+            assert!(
+                ESSENTIAL_UNITS.contains(&service),
+                "CRITICAL BUG: {} missing from ESSENTIAL_UNITS! \
+                 Without this, shutdown/poweroff/halt don't work. \
+                 See TEAM_XXX_systemd_shutdown_services.md for details",
+                service
+            );
+        }
+    }
+
+    #[test]
+    fn test_shutdown_targets_depend_on_services() {
+        // These targets REQUIRE their corresponding services
+        let shutdown_pairs = [
+            ("halt.target", "systemd-halt.service"),
+            ("poweroff.target", "systemd-poweroff.service"),
+            ("reboot.target", "systemd-reboot.service"),
+        ];
+
+        for (target, service) in shutdown_pairs {
+            assert!(
+                ESSENTIAL_UNITS.contains(&target),
+                "Target {} missing",
+                target
+            );
+            assert!(
+                ESSENTIAL_UNITS.contains(&service),
+                "Service {} required by {} is missing!",
+                service,
+                target
+            );
+        }
     }
 
     #[test]
