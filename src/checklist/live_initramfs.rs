@@ -303,9 +303,10 @@ pub fn verify(reader: &CpioReader) -> VerificationReport {
     // =========================================================================
     // 6. Check for modules.dep (needed by modprobe)
     // =========================================================================
-    let has_modules_dep = reader.entries().iter().any(|e| {
-        e.path.contains("lib/modules/") && e.path.ends_with("modules.dep")
-    });
+    let has_modules_dep = reader
+        .entries()
+        .iter()
+        .any(|e| e.path.contains("lib/modules/") && e.path.ends_with("modules.dep"));
 
     if has_modules_dep {
         report.add(CheckResult::pass("modules.dep", CheckCategory::EtcFile));
@@ -323,7 +324,9 @@ pub fn verify(reader: &CpioReader) -> VerificationReport {
     // =========================================================================
     for entry in reader.symlinks() {
         // Skip applet symlinks we already checked
-        if entry.path.starts_with("bin/") && APPLETS.iter().any(|a| entry.path == format!("bin/{}", a)) {
+        if entry.path.starts_with("bin/")
+            && APPLETS.iter().any(|a| entry.path == format!("bin/{}", a))
+        {
             continue;
         }
 

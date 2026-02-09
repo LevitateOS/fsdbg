@@ -97,7 +97,11 @@ impl CpioEntry {
         s.push(if perms & 0o400 != 0 { 'r' } else { '-' });
         s.push(if perms & 0o200 != 0 { 'w' } else { '-' });
         s.push(if perms & 0o4000 != 0 {
-            if perms & 0o100 != 0 { 's' } else { 'S' }
+            if perms & 0o100 != 0 {
+                's'
+            } else {
+                'S'
+            }
         } else if perms & 0o100 != 0 {
             'x'
         } else {
@@ -108,7 +112,11 @@ impl CpioEntry {
         s.push(if perms & 0o040 != 0 { 'r' } else { '-' });
         s.push(if perms & 0o020 != 0 { 'w' } else { '-' });
         s.push(if perms & 0o2000 != 0 {
-            if perms & 0o010 != 0 { 's' } else { 'S' }
+            if perms & 0o010 != 0 {
+                's'
+            } else {
+                'S'
+            }
         } else if perms & 0o010 != 0 {
             'x'
         } else {
@@ -119,7 +127,11 @@ impl CpioEntry {
         s.push(if perms & 0o004 != 0 { 'r' } else { '-' });
         s.push(if perms & 0o002 != 0 { 'w' } else { '-' });
         s.push(if perms & 0o1000 != 0 {
-            if perms & 0o001 != 0 { 't' } else { 'T' }
+            if perms & 0o001 != 0 {
+                't'
+            } else {
+                'T'
+            }
         } else if perms & 0o001 != 0 {
             'x'
         } else {
@@ -393,7 +405,9 @@ mod tests {
     use super::*;
     use leviso_cheat_guard::cheat_reviewed;
 
-    #[cheat_reviewed("Unit test for mode_string formatting - no cheat vectors (pure string formatting)")]
+    #[cheat_reviewed(
+        "Unit test for mode_string formatting - no cheat vectors (pure string formatting)"
+    )]
     #[test]
     fn test_mode_string() {
         let entry = CpioEntry {
@@ -414,7 +428,9 @@ mod tests {
         assert_eq!(entry.mode_string(), "-rwxr-xr-x");
     }
 
-    #[cheat_reviewed("Unit test for path normalization - no cheat vectors (pure string manipulation)")]
+    #[cheat_reviewed(
+        "Unit test for path normalization - no cheat vectors (pure string manipulation)"
+    )]
     #[test]
     fn test_normalize_path() {
         assert_eq!(CpioReader::normalize_path("./foo/bar"), "foo/bar");

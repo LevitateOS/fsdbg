@@ -69,8 +69,11 @@ impl FsdbgError {
 
     pub fn file_not_found(path: impl Into<PathBuf>) -> Self {
         let path = path.into();
-        Self::new(ErrorCode::FileNotFound, format!("File not found: {}", path.display()))
-            .with_path(path)
+        Self::new(
+            ErrorCode::FileNotFound,
+            format!("File not found: {}", path.display()),
+        )
+        .with_path(path)
     }
 
     pub fn invalid_format(message: impl Into<String>) -> Self {
@@ -85,7 +88,10 @@ impl FsdbgError {
     }
 
     pub fn missing_required(item: impl Into<String>) -> Self {
-        Self::new(ErrorCode::MissingRequired, format!("Missing required: {}", item.into()))
+        Self::new(
+            ErrorCode::MissingRequired,
+            format!("Missing required: {}", item.into()),
+        )
     }
 
     pub fn external_tool_failed(tool: impl Into<String>, message: impl Into<String>) -> Self {
@@ -96,7 +102,10 @@ impl FsdbgError {
     }
 
     pub fn unsupported_format(format: impl Into<String>) -> Self {
-        Self::new(ErrorCode::UnsupportedFormat, format!("Unsupported format: {}", format.into()))
+        Self::new(
+            ErrorCode::UnsupportedFormat,
+            format!("Unsupported format: {}", format.into()),
+        )
     }
 }
 

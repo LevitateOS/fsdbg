@@ -86,7 +86,7 @@ fn run(cli: Cli) -> Result<bool> {
     }
 }
 
-fn cmd_inspect(path: &PathBuf) -> Result<bool> {
+fn cmd_inspect(path: &Path) -> Result<bool> {
     let format = fsdbg::detect_format(path).context("Failed to detect archive format")?;
 
     println!("=== Archive: {} ===", path.display());
@@ -97,8 +97,10 @@ fn cmd_inspect(path: &PathBuf) -> Result<bool> {
             let reader = CpioReader::open(path)?;
             let stats = reader.stats();
 
-            println!("Entries: {} files, {} directories, {} symlinks",
-                stats.files, stats.directories, stats.symlinks);
+            println!(
+                "Entries: {} files, {} directories, {} symlinks",
+                stats.files, stats.directories, stats.symlinks
+            );
             println!("Total size: {} bytes (uncompressed)", stats.total_size);
             println!();
 
@@ -124,8 +126,10 @@ fn cmd_inspect(path: &PathBuf) -> Result<bool> {
             let reader = ErofsReader::open(path)?;
             let stats = reader.stats();
 
-            println!("Entries: {} files, {} directories, {} symlinks",
-                stats.files, stats.directories, stats.symlinks);
+            println!(
+                "Entries: {} files, {} directories, {} symlinks",
+                stats.files, stats.directories, stats.symlinks
+            );
             println!("Total size: {} bytes", stats.total_size);
         }
         ArchiveFormat::Iso => {
@@ -135,8 +139,10 @@ fn cmd_inspect(path: &PathBuf) -> Result<bool> {
             if let Some(vol) = reader.volume_id() {
                 println!("Volume ID: {}", vol);
             }
-            println!("Entries: {} files, {} directories, {} symlinks",
-                stats.files, stats.directories, stats.symlinks);
+            println!(
+                "Entries: {} files, {} directories, {} symlinks",
+                stats.files, stats.directories, stats.symlinks
+            );
             println!("Total size: {} bytes", stats.total_size);
         }
     }
@@ -144,8 +150,8 @@ fn cmd_inspect(path: &PathBuf) -> Result<bool> {
     Ok(true)
 }
 
-fn cmd_verify(path: &PathBuf, checklist_type: &str, verbose: bool) -> Result<bool> {
-    let checklist = ChecklistType::from_str(checklist_type)
+fn cmd_verify(path: &Path, checklist_type: &str, verbose: bool) -> Result<bool> {
+    let checklist = ChecklistType::parse_name(checklist_type)
         .ok_or_else(|| anyhow::anyhow!(
             "Unknown checklist type: {}. Valid types: install-initramfs, live-initramfs, rootfs, iso, auth-audit, qcow2",
             checklist_type
@@ -162,7 +168,9 @@ fn cmd_verify(path: &PathBuf, checklist_type: &str, verbose: bool) -> Result<boo
         ArchiveFormat::Cpio | ArchiveFormat::CpioGzip => {
             let reader = CpioReader::open(path)?;
             match checklist {
-                ChecklistType::InstallInitramfs => fsdbg::checklist::install_initramfs::verify(&reader),
+                ChecklistType::InstallInitramfs => {
+                    fsdbg::checklist::install_initramfs::verify(&reader)
+                }
                 ChecklistType::LiveInitramfs => fsdbg::checklist::live_initramfs::verify(&reader),
                 ChecklistType::Rootfs => fsdbg::checklist::rootfs::verify(&reader),
                 ChecklistType::AuthAudit => fsdbg::checklist::auth_audit::verify(&reader),
@@ -195,7 +203,7 @@ fn cmd_verify(path: &PathBuf, checklist_type: &str, verbose: bool) -> Result<boo
 ///
 /// This requires sudo for mounting. The verification itself also uses sudo
 /// to read files owned by root inside the mounted filesystem.
-fn cmd_verify_qcow2(path: &PathBuf, verbose: bool) -> Result<bool> {
+fn cmd_verify_qcow2(path: &Path, verbose: bool) -> Result<bool> {
     // Check we're running as root or have sudo
     let uid = unsafe { libc::getuid() };
     if uid != 0 {
@@ -372,15 +380,15 @@ impl Drop for Qcow2Cleanup {
         // Unmount in reverse order
         let boot_in_root = self.root_mount.join("boot");
         let _ = Command::new("sudo")
-            .args(["umount", &boot_in_root.to_string_lossy().to_string()])
+            .args(["umount", boot_in_root.to_string_lossy().as_ref()])
             .status();
 
         let _ = Command::new("sudo")
-            .args(["umount", &self.boot_mount.to_string_lossy().to_string()])
+            .args(["umount", self.boot_mount.to_string_lossy().as_ref()])
             .status();
 
         let _ = Command::new("sudo")
-            .args(["umount", &self.root_mount.to_string_lossy().to_string()])
+            .args(["umount", self.root_mount.to_string_lossy().as_ref()])
             .status();
 
         // Disconnect NBD
@@ -390,7 +398,7 @@ impl Drop for Qcow2Cleanup {
     }
 }
 
-fn cmd_check_symlinks(path: &PathBuf) -> Result<bool> {
+fn cmd_check_symlinks(path: &Path) -> Result<bool> {
     let format = fsdbg::detect_format(path)?;
 
     println!("=== Symlink Verification: {} ===", path.display());
@@ -415,7 +423,7 @@ fn cmd_check_symlinks(path: &PathBuf) -> Result<bool> {
             let reader = IsoReader::open(path)?;
 
             for entry in reader.symlinks() {
-                if reader.exists(&entry.link_target.as_deref().unwrap_or("")) {
+                if reader.exists(entry.link_target.as_deref().unwrap_or("")) {
                     valid += 1;
                 } else if let Some(ref target) = entry.link_target {
                     broken.push((entry.path.clone(), target.clone()));
@@ -444,7 +452,7 @@ fn cmd_check_symlinks(path: &PathBuf) -> Result<bool> {
     }
 }
 
-fn cmd_diff(path1: &PathBuf, path2: &PathBuf) -> Result<bool> {
+fn cmd_diff(path1: &Path, path2: &Path) -> Result<bool> {
     let format1 = fsdbg::detect_format(path1)?;
     let format2 = fsdbg::detect_format(path2)?;
 
@@ -586,5 +594,10 @@ fn print_report(report: &VerificationReport, verbose: bool) {
     }
 
     let status = if report.is_success() { "PASS" } else { "FAIL" };
-    println!("Result: {} ({}/{} checks passed)", status, report.passed(), report.total());
+    println!(
+        "Result: {} ({}/{} checks passed)",
+        status,
+        report.passed(),
+        report.total()
+    );
 }

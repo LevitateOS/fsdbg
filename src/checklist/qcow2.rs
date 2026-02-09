@@ -61,11 +61,8 @@ const LOCALE_CONF: &str = "etc/locale.conf";
 // =============================================================================
 
 /// Enabled services that must have symlinks in multi-user.target.wants
-const REQUIRED_ENABLED_SERVICES: &[&str] = &[
-    "NetworkManager.service",
-    "sshd.service",
-    "chronyd.service",
-];
+const REQUIRED_ENABLED_SERVICES: &[&str] =
+    &["NetworkManager.service", "sshd.service", "chronyd.service"];
 
 /// multi-user.target.wants directory
 const MULTI_USER_WANTS: &str = "etc/systemd/system/multi-user.target.wants";
@@ -156,11 +153,7 @@ fn check_boot(report: &mut VerificationReport, root: &Path) {
             Ok(entries) => {
                 let conf_files: Vec<_> = entries
                     .filter_map(|e| e.ok())
-                    .filter(|e| {
-                        e.path()
-                            .extension()
-                            .is_some_and(|ext| ext == "conf")
-                    })
+                    .filter(|e| e.path().extension().is_some_and(|ext| ext == "conf"))
                     .collect();
 
                 if conf_files.is_empty() {
@@ -191,10 +184,13 @@ fn check_boot(report: &mut VerificationReport, root: &Path) {
                                     let mut problems = Vec::new();
 
                                     // Check linux path exists
-                                    if let Some(linux_line) = content.lines().find(|l| l.starts_with("linux")) {
+                                    if let Some(linux_line) =
+                                        content.lines().find(|l| l.starts_with("linux"))
+                                    {
                                         let path = linux_line.trim_start_matches("linux").trim();
                                         // Path is relative to /boot, like /vmlinuz-*
-                                        let full_path = root.join("boot").join(path.trim_start_matches('/'));
+                                        let full_path =
+                                            root.join("boot").join(path.trim_start_matches('/'));
                                         if !full_path.exists() {
                                             valid = false;
                                             problems.push(format!("kernel '{}' not found", path));
@@ -202,20 +198,28 @@ fn check_boot(report: &mut VerificationReport, root: &Path) {
                                     }
 
                                     // Check initrd path exists
-                                    if let Some(initrd_line) = content.lines().find(|l| l.starts_with("initrd")) {
+                                    if let Some(initrd_line) =
+                                        content.lines().find(|l| l.starts_with("initrd"))
+                                    {
                                         let path = initrd_line.trim_start_matches("initrd").trim();
-                                        let full_path = root.join("boot").join(path.trim_start_matches('/'));
+                                        let full_path =
+                                            root.join("boot").join(path.trim_start_matches('/'));
                                         if !full_path.exists() {
                                             valid = false;
-                                            problems.push(format!("initramfs '{}' not found", path));
+                                            problems
+                                                .push(format!("initramfs '{}' not found", path));
                                         }
                                     }
 
                                     // Check options has root= (warning only)
                                     if has_options {
-                                        if let Some(options_line) = content.lines().find(|l| l.starts_with("options")) {
+                                        if let Some(options_line) =
+                                            content.lines().find(|l| l.starts_with("options"))
+                                        {
                                             if !options_line.contains("root=") {
-                                                problems.push("options missing root= parameter".to_string());
+                                                problems.push(
+                                                    "options missing root= parameter".to_string(),
+                                                );
                                             }
                                         }
                                     } else {
@@ -230,7 +234,11 @@ fn check_boot(report: &mut VerificationReport, root: &Path) {
                                     } else if valid {
                                         // Valid but with warnings
                                         report.add(CheckResult::pass(
-                                            format!("boot entry: {} ({})", name, problems.join(", ")),
+                                            format!(
+                                                "boot entry: {} ({})",
+                                                name,
+                                                problems.join(", ")
+                                            ),
                                             CheckCategory::EtcFile,
                                         ));
                                     } else {
@@ -292,18 +300,16 @@ fn check_kernel_initramfs(report: &mut VerificationReport, root: &Path) {
     let boot = root.join("boot");
 
     // Look for vmlinuz (canonical) or vmlinuz-* (versioned)
-    let vmlinuz_found = fs::read_dir(&boot)
-        .ok()
-        .and_then(|entries| {
-            entries
-                .filter_map(|e| e.ok())
-                .find(|e| {
-                    let name = e.file_name().to_string_lossy().to_string();
-                    // Accept "vmlinuz" (canonical) or "vmlinuz-*" (versioned)
-                    name == "vmlinuz" || name.starts_with("vmlinuz-")
-                })
-                .map(|e| e.file_name().to_string_lossy().to_string())
-        });
+    let vmlinuz_found = fs::read_dir(&boot).ok().and_then(|entries| {
+        entries
+            .filter_map(|e| e.ok())
+            .find(|e| {
+                let name = e.file_name().to_string_lossy().to_string();
+                // Accept "vmlinuz" (canonical) or "vmlinuz-*" (versioned)
+                name == "vmlinuz" || name.starts_with("vmlinuz-")
+            })
+            .map(|e| e.file_name().to_string_lossy().to_string())
+    });
 
     match vmlinuz_found {
         Some(name) => {
@@ -322,19 +328,17 @@ fn check_kernel_initramfs(report: &mut VerificationReport, root: &Path) {
     }
 
     // Look for initramfs.img (canonical) or initramfs-*.img (versioned)
-    let initramfs_found = fs::read_dir(&boot)
-        .ok()
-        .and_then(|entries| {
-            entries
-                .filter_map(|e| e.ok())
-                .find(|e| {
-                    let name = e.file_name().to_string_lossy().to_string();
-                    // Accept "initramfs.img" (canonical) or "initramfs-*.img" (versioned)
-                    name == "initramfs.img"
-                        || (name.starts_with("initramfs-") && name.ends_with(".img"))
-                })
-                .map(|e| e.file_name().to_string_lossy().to_string())
-        });
+    let initramfs_found = fs::read_dir(&boot).ok().and_then(|entries| {
+        entries
+            .filter_map(|e| e.ok())
+            .find(|e| {
+                let name = e.file_name().to_string_lossy().to_string();
+                // Accept "initramfs.img" (canonical) or "initramfs-*.img" (versioned)
+                name == "initramfs.img"
+                    || (name.starts_with("initramfs-") && name.ends_with(".img"))
+            })
+            .map(|e| e.file_name().to_string_lossy().to_string())
+    });
 
     match initramfs_found {
         Some(name) => {
@@ -388,13 +392,11 @@ fn check_filesystem(report: &mut VerificationReport, root: &Path) {
                             CheckCategory::EtcFile,
                         ));
                     } else {
-                        let missing: Vec<_> = [
-                            (!has_root).then_some("/"),
-                            (!has_boot).then_some("/boot"),
-                        ]
-                        .into_iter()
-                        .flatten()
-                        .collect();
+                        let missing: Vec<_> =
+                            [(!has_root).then_some("/"), (!has_boot).then_some("/boot")]
+                                .into_iter()
+                                .flatten()
+                                .collect();
                         report.add(CheckResult::fail(
                             FSTAB,
                             CheckCategory::EtcFile,
@@ -412,11 +414,7 @@ fn check_filesystem(report: &mut VerificationReport, root: &Path) {
             }
         }
     } else {
-        report.add(CheckResult::fail(
-            FSTAB,
-            CheckCategory::EtcFile,
-            "Missing",
-        ));
+        report.add(CheckResult::fail(FSTAB, CheckCategory::EtcFile, "Missing"));
     }
 }
 
@@ -433,11 +431,7 @@ fn check_system_config(report: &mut VerificationReport, root: &Path) {
                 ));
             }
             Ok(_) => {
-                report.add(CheckResult::fail(
-                    HOSTNAME,
-                    CheckCategory::EtcFile,
-                    "Empty",
-                ));
+                report.add(CheckResult::fail(HOSTNAME, CheckCategory::EtcFile, "Empty"));
             }
             Err(e) => {
                 report.add(CheckResult::fail(
@@ -648,11 +642,7 @@ fn check_shadow_file(report: &mut VerificationReport, root: &Path) {
             }
         }
     } else {
-        report.add(CheckResult::fail(
-            SHADOW,
-            CheckCategory::EtcFile,
-            "Missing",
-        ));
+        report.add(CheckResult::fail(SHADOW, CheckCategory::EtcFile, "Missing"));
     }
 }
 
@@ -678,7 +668,8 @@ fn check_user_database(report: &mut VerificationReport, root: &Path) {
 
                 if has_root {
                     report.add(CheckResult::pass(
-                        format!("{} ({} entries, has root{})",
+                        format!(
+                            "{} ({} entries, has root{})",
                             PASSWD,
                             entry_count,
                             if has_nobody { " and nobody" } else { "" }
@@ -702,11 +693,7 @@ fn check_user_database(report: &mut VerificationReport, root: &Path) {
             }
         }
     } else {
-        report.add(CheckResult::fail(
-            PASSWD,
-            CheckCategory::EtcFile,
-            "Missing",
-        ));
+        report.add(CheckResult::fail(PASSWD, CheckCategory::EtcFile, "Missing"));
     }
 
     // Group file
@@ -720,7 +707,8 @@ fn check_user_database(report: &mut VerificationReport, root: &Path) {
 
                 if has_root {
                     report.add(CheckResult::pass(
-                        format!("{} ({} entries, has root{})",
+                        format!(
+                            "{} ({} entries, has root{})",
                             GROUP,
                             entry_count,
                             if has_wheel { " and wheel" } else { "" }
@@ -744,11 +732,7 @@ fn check_user_database(report: &mut VerificationReport, root: &Path) {
             }
         }
     } else {
-        report.add(CheckResult::fail(
-            GROUP,
-            CheckCategory::EtcFile,
-            "Missing",
-        ));
+        report.add(CheckResult::fail(GROUP, CheckCategory::EtcFile, "Missing"));
     }
 }
 

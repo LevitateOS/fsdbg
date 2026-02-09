@@ -30,7 +30,11 @@ impl CheckResult {
         }
     }
 
-    pub fn fail(item: impl Into<String>, category: CheckCategory, message: impl Into<String>) -> Self {
+    pub fn fail(
+        item: impl Into<String>,
+        category: CheckCategory,
+        message: impl Into<String>,
+    ) -> Self {
         Self {
             item: item.into(),
             passed: false,
@@ -159,7 +163,7 @@ pub enum ChecklistType {
 }
 
 impl ChecklistType {
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn parse_name(s: &str) -> Option<Self> {
         match s.to_lowercase().as_str() {
             "install-initramfs" | "install_initramfs" | "install" => {
                 Some(ChecklistType::InstallInitramfs)

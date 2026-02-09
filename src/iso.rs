@@ -266,7 +266,7 @@ fn parse_iso_info(output: &str) -> Result<IsoInfo, FsdbgError> {
             );
         } else if line.starts_with("Volume size is:") {
             if let Some(size_str) = line.split(':').nth(1) {
-                let size_str = size_str.trim().split_whitespace().next().unwrap_or("0");
+                let size_str = size_str.split_whitespace().next().unwrap_or("0");
                 info.volume_size = size_str.parse().unwrap_or(0);
             }
         } else if line.starts_with("Logical block size is:") {

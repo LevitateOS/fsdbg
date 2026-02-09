@@ -52,33 +52,33 @@ use crate::iso::IsoReader;
 
 // Import constants from distro-spec
 use distro_spec::levitate::{
-    // ISO identity
-    ISO_LABEL,
     // Paths
     INITRAMFS_INSTALLED_ISO_PATH,
+    // ISO identity
+    ISO_LABEL,
     UKI_INSTALLED_ISO_DIR,
     UKI_INSTALLED_ISO_PATH,
     UKI_INSTALLED_RECOVERY_ISO_PATH,
 };
 use distro_spec::shared::{
+    EFIBOOT_FILENAME,
     // ISO structure
     EFI_BOOTLOADER,
-    EFIBOOT_FILENAME,
     INITRAMFS_LIVE_ISO_PATH,
     ISO_BOOT_DIR,
     ISO_EFI_DIR,
     ISO_LIVE_DIR,
     KERNEL_ISO_PATH,
     LIVE_OVERLAY_ISO_PATH,
+    LOADER_CONF_FILENAME,
+    // Loader
+    LOADER_ENTRIES_DIR,
     ROOTFS_ISO_PATH,
     // UKI filenames
     UKI_DEBUG_FILENAME,
     UKI_EFI_DIR,
     UKI_EMERGENCY_FILENAME,
     UKI_LIVE_FILENAME,
-    // Loader
-    LOADER_ENTRIES_DIR,
-    LOADER_CONF_FILENAME,
 };
 
 // =============================================================================
@@ -88,17 +88,17 @@ use distro_spec::shared::{
 /// Directories that exist in the ISO.
 pub const DIRS: &[&str] = &[
     // Boot directory (kernel, initramfs)
-    ISO_BOOT_DIR,           // "boot"
+    ISO_BOOT_DIR, // "boot"
     // Live directory (EROFS rootfs, overlay)
-    ISO_LIVE_DIR,           // "live"
+    ISO_LIVE_DIR, // "live"
     // EFI boot structure
     "EFI",
-    ISO_EFI_DIR,            // "EFI/BOOT"
-    UKI_EFI_DIR,            // "EFI/Linux"
+    ISO_EFI_DIR, // "EFI/BOOT"
+    UKI_EFI_DIR, // "EFI/Linux"
     // systemd-boot loader config
-    LOADER_ENTRIES_DIR,     // "loader"
+    LOADER_ENTRIES_DIR, // "loader"
     // Installed UKIs directory
-    UKI_INSTALLED_ISO_DIR,  // "boot/uki"
+    UKI_INSTALLED_ISO_DIR, // "boot/uki"
 ];
 
 // =============================================================================
@@ -108,11 +108,11 @@ pub const DIRS: &[&str] = &[
 /// Boot files (kernel, initramfs).
 pub const BOOT_FILES: &[&str] = &[
     // Linux kernel
-    KERNEL_ISO_PATH,                // "boot/vmlinuz"
+    KERNEL_ISO_PATH, // "boot/vmlinuz"
     // Live initramfs (tiny - mounts EROFS from ISO)
-    INITRAMFS_LIVE_ISO_PATH,        // "boot/initramfs-live.img"
+    INITRAMFS_LIVE_ISO_PATH, // "boot/initramfs-live.img"
     // Installed initramfs (full - for installed systems)
-    INITRAMFS_INSTALLED_ISO_PATH,   // "boot/initramfs-installed.img"
+    INITRAMFS_INSTALLED_ISO_PATH, // "boot/initramfs-installed.img"
 ];
 
 // =============================================================================
@@ -122,7 +122,7 @@ pub const BOOT_FILES: &[&str] = &[
 /// Rootfs and overlay files.
 pub const ROOTFS_FILES: &[&str] = &[
     // EROFS rootfs (~350MB complete system)
-    ROOTFS_ISO_PATH,                // "live/filesystem.erofs"
+    ROOTFS_ISO_PATH, // "live/filesystem.erofs"
 ];
 
 /// Overlay directory (live-specific configs).
@@ -137,11 +137,11 @@ pub const OVERLAY_DIR: &str = LIVE_OVERLAY_ISO_PATH; // "live/overlay"
 /// These are in /EFI/Linux/ and auto-discovered by systemd-boot.
 pub const LIVE_UKIS: &[&str] = &[
     // Normal live boot
-    UKI_LIVE_FILENAME,              // "levitateos-live.efi"
+    UKI_LIVE_FILENAME, // "levitateos-live.efi"
     // Emergency shell (emergency target)
-    UKI_EMERGENCY_FILENAME,         // "levitateos-emergency.efi"
+    UKI_EMERGENCY_FILENAME, // "levitateos-emergency.efi"
     // Debug mode (verbose output)
-    UKI_DEBUG_FILENAME,             // "levitateos-debug.efi"
+    UKI_DEBUG_FILENAME, // "levitateos-debug.efi"
 ];
 
 // =============================================================================
@@ -152,7 +152,7 @@ pub const LIVE_UKIS: &[&str] = &[
 /// Users copy these to /boot/EFI/Linux/ during installation.
 pub const INSTALLED_UKIS: &[&str] = &[
     // Normal boot for installed system
-    UKI_INSTALLED_ISO_PATH,         // "boot/uki/levitateos.efi"
+    UKI_INSTALLED_ISO_PATH, // "boot/uki/levitateos.efi"
     // Recovery mode for installed system
     UKI_INSTALLED_RECOVERY_ISO_PATH, // "boot/uki/levitateos-recovery.efi"
 ];

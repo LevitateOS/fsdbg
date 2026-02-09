@@ -50,7 +50,7 @@ pub const BINARIES: &[&str] = &[
     // Shell - busybox provides statically linked shell for early boot
     // (bash is dynamically linked and removed intentionally - see TEAM_145)
     "usr/bin/busybox",
-    "usr/bin/sh",  // Symlink to busybox
+    "usr/bin/sh", // Symlink to busybox
 ];
 
 // =============================================================================
@@ -238,7 +238,7 @@ pub const DIRS: &[&str] = &[
     "var",
     "var/run",
     // Root filesystem mount point for switch-root
-    "sysroot",  // CRITICAL: systemd mounts root here before switch-root
+    "sysroot", // CRITICAL: systemd mounts root here before switch-root
     // Systemd
     "usr/lib/systemd",
     "usr/lib/systemd/system",
@@ -276,11 +276,7 @@ pub fn verify(reader: &CpioReader) -> VerificationReport {
         if reader.exists(binary) {
             report.add(CheckResult::pass(*binary, CheckCategory::Binary));
         } else {
-            report.add(CheckResult::fail(
-                *binary,
-                CheckCategory::Binary,
-                "Missing",
-            ));
+            report.add(CheckResult::fail(*binary, CheckCategory::Binary, "Missing"));
         }
     }
 
@@ -333,16 +329,12 @@ pub fn verify(reader: &CpioReader) -> VerificationReport {
             ));
         }
     } else {
-        report.add(CheckResult::fail(
-            "init",
-            CheckCategory::Binary,
-            "Missing",
-        ));
+        report.add(CheckResult::fail("init", CheckCategory::Binary, "Missing"));
     }
 
     // Check symlinks (merged-usr symlinks)
     for (link, target) in SYMLINKS {
-        if let Some(entry) = reader.get(*link) {
+        if let Some(entry) = reader.get(link) {
             if entry.is_symlink() {
                 if let Some(ref actual_target) = entry.link_target {
                     if actual_target == *target {
@@ -372,11 +364,7 @@ pub fn verify(reader: &CpioReader) -> VerificationReport {
                 ));
             }
         } else {
-            report.add(CheckResult::fail(
-                *link,
-                CheckCategory::Symlink,
-                "Missing",
-            ));
+            report.add(CheckResult::fail(*link, CheckCategory::Symlink, "Missing"));
         }
     }
 

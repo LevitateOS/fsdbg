@@ -37,33 +37,39 @@ use std::collections::HashSet;
 
 // Import from SINGLE SOURCE OF TRUTH
 use distro_spec::shared::{
-    FHS_DIRS, FHS_SYMLINKS,
+    ALL_SYSTEMD_UNITS, // Consolidated list of ALL systemd units
+    BIN_UTILS,
+    BLUETOOTH_SBIN,
+    CRITICAL_LIBS,
+
+    ETC_FILES,
+    FHS_DIRS,
+    FHS_SYMLINKS,
     // LevitateOS installation tools (recstrap, recfstab, recchroot, recipe, levitate-docs)
     LEVITATE_TOOLS,
-    BIN_UTILS, SSH_BIN, NM_BIN,
-    SBIN_UTILS, NM_SBIN, WPA_SBIN, SSH_SBIN,
-    BLUETOOTH_SBIN, PIPEWIRE_SBIN, POLKIT_SBIN, UDISKS_SBIN, UPOWER_SBIN,
+    NM_BIN,
+    NM_SBIN,
+    PIPEWIRE_SBIN,
+    POLKIT_SBIN,
+    SBIN_UTILS,
+    SSH_BIN,
+    SSH_SBIN,
     SYSTEMD_BINARIES,
-    ESSENTIAL_UNITS,
-    ALL_SYSTEMD_UNITS,  // Consolidated list of ALL systemd units
     UDEV_HELPERS,
-    ETC_FILES,
-    CRITICAL_LIBS,
+    UDISKS_SBIN,
+    UPOWER_SBIN,
+    WPA_SBIN,
 };
 
 // Auth components from dedicated auth subsystem
 use distro_spec::shared::auth::{
-    AUTH_BIN, AUTH_SBIN, SHADOW_SBIN,
-    PAM_MODULES, PAM_CONFIGS, SECURITY_FILES,
+    AUTH_BIN, AUTH_SBIN, PAM_CONFIGS, PAM_MODULES, SECURITY_FILES, SHADOW_SBIN,
 };
 
 // Re-export for backwards compatibility with any external consumers
 pub use distro_spec::shared::{
-    FHS_DIRS as DIRS,
-    FHS_SYMLINKS as SYMLINKS,
-    CRITICAL_LIBS as LIBS,
+    CRITICAL_LIBS as LIBS, FHS_DIRS as DIRS, FHS_SYMLINKS as SYMLINKS, SYSTEM_GROUPS as GROUPS,
     SYSTEM_USERS as USERS,
-    SYSTEM_GROUPS as GROUPS,
 };
 
 // =============================================================================
@@ -156,7 +162,7 @@ pub fn verify(reader: &CpioReader) -> VerificationReport {
     // 2. Check merged-usr symlinks
     // =========================================================================
     for (link, target) in FHS_SYMLINKS {
-        if let Some(entry) = reader.get(*link) {
+        if let Some(entry) = reader.get(link) {
             if entry.is_symlink() {
                 if let Some(ref actual_target) = entry.link_target {
                     if actual_target == *target {
@@ -192,7 +198,8 @@ pub fn verify(reader: &CpioReader) -> VerificationReport {
     // 3. Check /usr/bin binaries
     // =========================================================================
     // Combine all bin lists
-    let all_bins: Vec<&str> = BIN_UTILS.iter()
+    let all_bins: Vec<&str> = BIN_UTILS
+        .iter()
         .chain(AUTH_BIN.iter())
         .chain(SSH_BIN.iter())
         .chain(NM_BIN.iter())
@@ -243,7 +250,8 @@ pub fn verify(reader: &CpioReader) -> VerificationReport {
     // =========================================================================
     // 4. Check /usr/sbin binaries
     // =========================================================================
-    let all_sbins: Vec<&str> = SBIN_UTILS.iter()
+    let all_sbins: Vec<&str> = SBIN_UTILS
+        .iter()
         .chain(AUTH_SBIN.iter())
         .chain(SHADOW_SBIN.iter())
         .chain(NM_SBIN.iter())
@@ -330,7 +338,7 @@ pub fn verify(reader: &CpioReader) -> VerificationReport {
                     "CRITICAL: Missing shutdown target!"
                 } else {
                     "Missing"
-                }
+                },
             ));
         }
     }
@@ -348,7 +356,8 @@ pub fn verify(reader: &CpioReader) -> VerificationReport {
             CheckCategory::Unit,
             format!(
                 "Missing units: {}",
-                missing_units.iter()
+                missing_units
+                    .iter()
                     .map(|u| u.to_string())
                     .collect::<Vec<_>>()
                     .join(", ")
@@ -516,9 +525,10 @@ pub fn verify(reader: &CpioReader) -> VerificationReport {
     // =========================================================================
     // 14. Check for kernel modules directory
     // =========================================================================
-    let has_modules = reader.entries().iter().any(|e| {
-        e.path.starts_with("usr/lib/modules/") && e.path.contains("/kernel/")
-    });
+    let has_modules = reader
+        .entries()
+        .iter()
+        .any(|e| e.path.starts_with("usr/lib/modules/") && e.path.contains("/kernel/"));
     if has_modules {
         report.add(CheckResult::pass(
             "usr/lib/modules/*/kernel/",
@@ -535,9 +545,10 @@ pub fn verify(reader: &CpioReader) -> VerificationReport {
     // =========================================================================
     // 15. Check for udev rules
     // =========================================================================
-    let has_udev_rules = reader.entries().iter().any(|e| {
-        e.path.starts_with("usr/lib/udev/rules.d/") && e.path.ends_with(".rules")
-    });
+    let has_udev_rules = reader
+        .entries()
+        .iter()
+        .any(|e| e.path.starts_with("usr/lib/udev/rules.d/") && e.path.ends_with(".rules"));
     if has_udev_rules {
         report.add(CheckResult::pass(
             "usr/lib/udev/rules.d/*.rules",
@@ -554,9 +565,10 @@ pub fn verify(reader: &CpioReader) -> VerificationReport {
     // =========================================================================
     // 16. Check for terminfo (required for tmux, ncurses apps)
     // =========================================================================
-    let has_terminfo = reader.entries().iter().any(|e| {
-        e.path.starts_with("usr/share/terminfo/")
-    });
+    let has_terminfo = reader
+        .entries()
+        .iter()
+        .any(|e| e.path.starts_with("usr/share/terminfo/"));
     if has_terminfo {
         report.add(CheckResult::pass(
             "usr/share/terminfo/",
@@ -573,9 +585,10 @@ pub fn verify(reader: &CpioReader) -> VerificationReport {
     // =========================================================================
     // 17. Check for locale data
     // =========================================================================
-    let has_locale = reader.entries().iter().any(|e| {
-        e.path.starts_with("usr/lib/locale/") || e.path.starts_with("usr/share/locale/")
-    });
+    let has_locale = reader
+        .entries()
+        .iter()
+        .any(|e| e.path.starts_with("usr/lib/locale/") || e.path.starts_with("usr/share/locale/"));
     if has_locale {
         report.add(CheckResult::pass("locale data", CheckCategory::Other));
     } else {
@@ -589,9 +602,10 @@ pub fn verify(reader: &CpioReader) -> VerificationReport {
     // =========================================================================
     // 18. Check for timezone data
     // =========================================================================
-    let has_zoneinfo = reader.entries().iter().any(|e| {
-        e.path.starts_with("usr/share/zoneinfo/")
-    });
+    let has_zoneinfo = reader
+        .entries()
+        .iter()
+        .any(|e| e.path.starts_with("usr/share/zoneinfo/"));
     if has_zoneinfo {
         report.add(CheckResult::pass(
             "usr/share/zoneinfo/",
@@ -654,9 +668,10 @@ const CRITICAL_LICENSE_PACKAGES: &[&str] = &[
 /// Verify license directories are present.
 fn verify_licenses(reader: &CpioReader, report: &mut VerificationReport) {
     // First check: do we have any licenses at all?
-    let has_licenses = reader.entries().iter().any(|e| {
-        e.path.starts_with("usr/share/licenses/")
-    });
+    let has_licenses = reader
+        .entries()
+        .iter()
+        .any(|e| e.path.starts_with("usr/share/licenses/"));
 
     if !has_licenses {
         report.add(CheckResult::fail(
@@ -711,6 +726,7 @@ fn verify_licenses(reader: &CpioReader, report: &mut VerificationReport) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use distro_spec::shared::ESSENTIAL_UNITS;
 
     // =========================================================================
     // BUSYBOX FORBIDDEN TESTS
@@ -886,7 +902,13 @@ mod tests {
     #[test]
     fn test_levitate_tools_are_checked() {
         // Verify all LevitateOS installation tools are in the checklist
-        let required_tools = ["recstrap", "recfstab", "recchroot", "recipe", "levitate-docs"];
+        let required_tools = [
+            "recstrap",
+            "recfstab",
+            "recchroot",
+            "recipe",
+            "levitate-docs",
+        ];
         for tool in required_tools {
             assert!(
                 LEVITATE_TOOLS.contains(&tool),

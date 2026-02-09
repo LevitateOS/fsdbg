@@ -35,7 +35,10 @@ use distro_spec::shared::auth::{
 /// Critical authentication binaries that MUST exist.
 /// These are binaries where absence causes silent failures or security holes.
 const CRITICAL_AUTH_BINARIES: &[(&str, &str)] = &[
-    ("usr/sbin/unix_chkpwd", "pam_unix.so hardcoded path - password auth WILL FAIL without this"),
+    (
+        "usr/sbin/unix_chkpwd",
+        "pam_unix.so hardcoded path - password auth WILL FAIL without this",
+    ),
     ("usr/sbin/passwd", "password changes impossible"),
     ("usr/sbin/chpasswd", "batch password setting broken"),
     ("usr/bin/sudo", "privilege escalation unavailable"),
@@ -46,7 +49,10 @@ const CRITICAL_AUTH_BINARIES: &[(&str, &str)] = &[
 
 /// Critical PAM modules that form the core authentication stack.
 const CRITICAL_PAM_MODULES: &[(&str, &str)] = &[
-    ("pam_unix.so", "Core Unix password authentication - login WILL FAIL"),
+    (
+        "pam_unix.so",
+        "Core Unix password authentication - login WILL FAIL",
+    ),
     ("pam_deny.so", "Required for secure fallback"),
     ("pam_systemd.so", "Session registration with logind"),
     ("pam_env.so", "Environment setup for sessions"),
@@ -55,7 +61,10 @@ const CRITICAL_PAM_MODULES: &[(&str, &str)] = &[
 
 /// Critical PAM configuration files.
 const CRITICAL_PAM_CONFIGS: &[(&str, &str)] = &[
-    ("etc/pam.d/system-auth", "Main auth stack - ALL authentication uses this"),
+    (
+        "etc/pam.d/system-auth",
+        "Main auth stack - ALL authentication uses this",
+    ),
     ("etc/pam.d/password-auth", "Password-based auth (SSH, etc)"),
     ("etc/pam.d/login", "Console login"),
     ("etc/pam.d/sshd", "SSH login"),
@@ -70,7 +79,10 @@ const CRITICAL_SECURITY_FILES: &[(&str, &str)] = &[
     ("etc/security/limits.conf", "Resource limits (ulimit)"),
     ("etc/security/pam_env.conf", "PAM environment variables"),
     ("etc/security/access.conf", "Access control rules"),
-    ("etc/security/pwquality.conf", "Password quality requirements"),
+    (
+        "etc/security/pwquality.conf",
+        "Password quality requirements",
+    ),
 ];
 
 /// Essential /etc files for authentication.
@@ -79,11 +91,17 @@ const CRITICAL_ETC_FILES: &[(&str, &str)] = &[
     ("etc/shadow", "Password hashes"),
     ("etc/group", "Group database"),
     ("etc/gshadow", "Group password hashes"),
-    ("etc/login.defs", "Login defaults (password aging, UID ranges, encryption)"),
+    (
+        "etc/login.defs",
+        "Login defaults (password aging, UID ranges, encryption)",
+    ),
     ("etc/sudoers", "Sudo configuration"),
     ("etc/sudo.conf", "Sudo runtime config"),
     ("etc/shells", "Valid login shells"),
-    ("etc/nsswitch.conf", "Name service switch (passwd/group resolution)"),
+    (
+        "etc/nsswitch.conf",
+        "Name service switch (passwd/group resolution)",
+    ),
 ];
 
 /// Files that should exist for hardened security (warnings if missing).
@@ -94,7 +112,10 @@ const RECOMMENDED_SECURITY_FILES: &[(&str, &str)] = &[
 
 /// PAM modules for security hardening (warnings if missing).
 const RECOMMENDED_PAM_MODULES: &[(&str, &str)] = &[
-    ("pam_faillock.so", "Account lockout after failed login attempts"),
+    (
+        "pam_faillock.so",
+        "Account lockout after failed login attempts",
+    ),
     ("pam_pwquality.so", "Password strength enforcement"),
     ("pam_wheel.so", "Restrict su to wheel group"),
     ("pam_securetty.so", "Restrict root to secure terminals"),
@@ -544,7 +565,10 @@ mod tests {
     #[test]
     fn test_auth_bin_from_distro_spec() {
         // Verify AUTH_BIN from distro-spec is reasonable
-        assert!(AUTH_BIN.contains(&"sudo"), "distro-spec AUTH_BIN missing sudo");
+        assert!(
+            AUTH_BIN.contains(&"sudo"),
+            "distro-spec AUTH_BIN missing sudo"
+        );
         assert!(AUTH_BIN.contains(&"su"), "distro-spec AUTH_BIN missing su");
     }
 
@@ -608,10 +632,7 @@ mod tests {
     #[test]
     fn test_security_files_from_distro_spec_complete() {
         // Verify SECURITY_FILES from distro-spec includes policies
-        let essential = [
-            "etc/security/limits.conf",
-            "etc/security/access.conf",
-        ];
+        let essential = ["etc/security/limits.conf", "etc/security/access.conf"];
         for file in essential {
             assert!(
                 SECURITY_FILES.contains(&file),
@@ -660,9 +681,7 @@ mod tests {
     fn test_shells_file_is_critical() {
         // /etc/shells is required for valid shell checking
         assert!(
-            CRITICAL_ETC_FILES
-                .iter()
-                .any(|(f, _)| *f == "etc/shells"),
+            CRITICAL_ETC_FILES.iter().any(|(f, _)| *f == "etc/shells"),
             "/etc/shells is CRITICAL - valid shell list"
         );
     }
