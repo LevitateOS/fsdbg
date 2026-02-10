@@ -37,7 +37,7 @@ use std::collections::HashSet;
 
 // Import from SINGLE SOURCE OF TRUTH
 use distro_spec::shared::{
-    ALL_SYSTEMD_UNITS, // Consolidated list of ALL systemd units
+    all_systemd_units,
     BIN_UTILS,
     BLUETOOTH_SBIN,
     CRITICAL_LIBS,
@@ -304,21 +304,13 @@ pub fn verify(reader: &CpioReader) -> VerificationReport {
     // =========================================================================
     // 6. Check systemd units (ALL OF THEM)
     // =========================================================================
-    // Use consolidated ALL_SYSTEMD_UNITS from distro-spec
-    // This includes:
-    // - Essential targets (multi-user.target, halt.target, poweroff.target, reboot.target)
-    // - All core services (systemd-journald, systemd-udev, fsck, etc.)
-    // - Login services (getty, serial-getty)
-    // - Networking (NetworkManager, wpa_supplicant)
-    // - Audio (PipeWire)
-    // - Bluetooth, polkit, udisks, upower
-    // - SSH (sshd)
-    // - D-Bus activation symlinks
+    // Composed from constituent unit lists in distro-spec
+    let all_units = all_systemd_units();
 
     let mut missing_units = Vec::new();
     let mut found_units = Vec::new();
 
-    for unit in ALL_SYSTEMD_UNITS {
+    for unit in &all_units {
         // PipeWire units are in user/ directory
         let unit_path = if unit.contains("pipewire") || unit.contains("wireplumber") {
             format!("usr/lib/systemd/user/{}", unit)
@@ -344,7 +336,7 @@ pub fn verify(reader: &CpioReader) -> VerificationReport {
     }
 
     // Summary report
-    let total_units = ALL_SYSTEMD_UNITS.len();
+    let total_units = all_units.len();
     report.add(CheckResult::pass(
         format!("Systemd units: {}/{} found", found_units.len(), total_units),
         CheckCategory::Unit,
@@ -838,7 +830,7 @@ mod tests {
                 ESSENTIAL_UNITS.contains(&service),
                 "CRITICAL BUG: {} missing from ESSENTIAL_UNITS! \
                  Without this, shutdown/poweroff/halt don't work. \
-                 See TEAM_XXX_systemd_shutdown_services.md for details",
+                 See CRITICAL_FIX_systemd_shutdown_services.md for details",
                 service
             );
         }
