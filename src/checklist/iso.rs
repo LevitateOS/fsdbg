@@ -1,12 +1,7 @@
-//! ISO 9660 image checklist for LevitateOS live ISO.
+//! ISO 9660 image checklist for Stage 00 live ISOs.
 //!
-//! Verifies that the ISO contains ALL boot infrastructure,
-//! UKIs, rootfs, and installation support files.
-//!
-//! SOURCE OF TRUTH: `distro-spec/src/shared/iso.rs`, `distro-spec/src/levitate/paths.rs`,
-//!                  `distro-spec/src/shared/uki.rs`, `leviso/src/artifact/iso.rs`
-//!
-//! This checklist must stay in sync with what reciso/leviso actually builds.
+//! Verifies shared cross-distro boot infrastructure:
+//! kernel/initramfs/rootfs/overlay + EFI boot essentials + live UKIs.
 //!
 //! ## ISO Structure
 //!
@@ -15,20 +10,17 @@
 //! ├── boot/
 //! │   ├── vmlinuz                    # Linux kernel
 //! │   ├── initramfs.img              # Live initramfs (tiny, mounts EROFS)
-//! │   ├── initramfs-installed.img    # Installed initramfs (full, for disk boot)
-//! │   └── uki/                       # Pre-built UKIs for installed systems
-//! │       ├── levitateos.efi         # Normal boot UKI
-//! │       └── levitateos-recovery.efi# Recovery mode UKI
+//! │   └── initramfs.img              # Live initramfs (tiny, mounts EROFS)
 //! ├── live/
-//! │   ├── filesystem.erofs           # EROFS rootfs (~350MB)
-//! │   └── overlay/                   # Live-specific configs (autologin, etc.)
+//! │   ├── filesystem.erofs           # EROFS rootfs (minimal in Stage 00)
+//! │   └── overlayfs.erofs            # Live overlay payload image (EROFS)
 //! ├── EFI/
 //! │   ├── BOOT/
 //! │   │   └── BOOTX64.EFI            # systemd-boot
 //! │   └── Linux/
-//! │       ├── levitateos-live.efi    # Live boot UKI
-//! │       ├── levitateos-emergency.efi # Emergency UKI
-//! │       └── levitateos-debug.efi   # Debug UKI
+//! │       ├── <distro>-live.efi      # Live boot UKI
+//! │       ├── <distro>-emergency.efi # Emergency UKI
+//! │       └── <distro>-debug.efi     # Debug UKI
 //! ├── loader/
 //! │   └── loader.conf                # systemd-boot config
 //! └── efiboot.img                    # FAT16 EFI boot image
@@ -41,9 +33,9 @@
 //! 3. User selects boot option (or default after timeout)
 //! 4. UKI contains kernel + initramfs + cmdline
 //! 5. Kernel extracts initramfs to rootfs
-//! 6. init_tiny mounts ISO by LABEL=LEVITATEOS
+//! 6. init_tiny mounts ISO by LABEL=<distro label>
 //! 7. Mounts `/live/filesystem.erofs` as lower layer
-//! 8. Mounts `/live/overlay` as middle layer
+//! 8. Mounts `live/overlayfs.erofs` as middle lowerdir payload
 //! 9. Mounts tmpfs as upper layer (for writes)
 //! 10. switch_root to overlay
 
@@ -51,15 +43,6 @@ use super::{CheckCategory, CheckResult, VerificationReport};
 use crate::iso::IsoReader;
 
 // Import constants from distro-spec
-use distro_spec::levitate::{
-    // Paths
-    INITRAMFS_INSTALLED_ISO_PATH,
-    // ISO identity
-    ISO_LABEL,
-    UKI_INSTALLED_ISO_DIR,
-    UKI_INSTALLED_ISO_PATH,
-    UKI_INSTALLED_RECOVERY_ISO_PATH,
-};
 use distro_spec::shared::{
     EFIBOOT_FILENAME,
     // ISO structure
@@ -69,16 +52,12 @@ use distro_spec::shared::{
     ISO_EFI_DIR,
     ISO_LIVE_DIR,
     KERNEL_ISO_PATH,
+    LIVE_OVERLAYFS_ISO_PATH,
     LIVE_OVERLAY_ISO_PATH,
     LOADER_CONF_FILENAME,
-    // Loader
     LOADER_ENTRIES_DIR,
     ROOTFS_ISO_PATH,
-    // UKI filenames
-    UKI_DEBUG_FILENAME,
     UKI_EFI_DIR,
-    UKI_EMERGENCY_FILENAME,
-    UKI_LIVE_FILENAME,
 };
 
 // =============================================================================
@@ -97,8 +76,6 @@ pub const DIRS: &[&str] = &[
     UKI_EFI_DIR, // "EFI/Linux"
     // systemd-boot loader config
     LOADER_ENTRIES_DIR, // "loader"
-    // Installed UKIs directory
-    UKI_INSTALLED_ISO_DIR, // "boot/uki"
 ];
 
 // =============================================================================
@@ -111,51 +88,26 @@ pub const BOOT_FILES: &[&str] = &[
     KERNEL_ISO_PATH, // "boot/vmlinuz"
     // Live initramfs (tiny - mounts EROFS from ISO)
     INITRAMFS_LIVE_ISO_PATH, // "boot/initramfs-live.img"
-    // Installed initramfs (full - for installed systems)
-    INITRAMFS_INSTALLED_ISO_PATH, // "boot/initramfs-installed.img"
 ];
 
 // =============================================================================
 // ROOTFS FILES
 // =============================================================================
 
-/// Rootfs and overlay files.
+/// Rootfs and overlay payload image files.
 pub const ROOTFS_FILES: &[&str] = &[
     // EROFS rootfs (~350MB complete system)
     ROOTFS_ISO_PATH, // "live/filesystem.erofs"
+    // Live overlay payload image (read-only EROFS)
+    LIVE_OVERLAYFS_ISO_PATH, // "live/overlayfs.erofs"
 ];
 
-/// Overlay directory (live-specific configs).
-/// This is a directory, not a file.
-pub const OVERLAY_DIR: &str = LIVE_OVERLAY_ISO_PATH; // "live/overlay"
+/// Compatibility alias retained in distro-spec. Checklist uses image path.
+#[allow(dead_code)]
+pub const OVERLAY_COMPAT_ALIAS: &str = LIVE_OVERLAY_ISO_PATH;
 
-// =============================================================================
-// LIVE UKIS (for booting from ISO)
-// =============================================================================
-
-/// Live UKIs for booting from the ISO.
-/// These are in /EFI/Linux/ and auto-discovered by systemd-boot.
-pub const LIVE_UKIS: &[&str] = &[
-    // Normal live boot
-    UKI_LIVE_FILENAME, // "levitateos-live.efi"
-    // Emergency shell (emergency target)
-    UKI_EMERGENCY_FILENAME, // "levitateos-emergency.efi"
-    // Debug mode (verbose output)
-    UKI_DEBUG_FILENAME, // "levitateos-debug.efi"
-];
-
-// =============================================================================
-// INSTALLED UKIS (pre-built for installation)
-// =============================================================================
-
-/// Installed UKIs - pre-built during ISO creation.
-/// Users copy these to /boot/EFI/Linux/ during installation.
-pub const INSTALLED_UKIS: &[&str] = &[
-    // Normal boot for installed system
-    UKI_INSTALLED_ISO_PATH, // "boot/uki/levitateos.efi"
-    // Recovery mode for installed system
-    UKI_INSTALLED_RECOVERY_ISO_PATH, // "boot/uki/levitateos-recovery.efi"
-];
+/// Required number of live UKIs under `/EFI/Linux`.
+pub const LIVE_UKI_MIN_COUNT: usize = 3;
 
 // =============================================================================
 // LOADER CONFIG
@@ -164,15 +116,6 @@ pub const INSTALLED_UKIS: &[&str] = &[
 /// systemd-boot loader configuration file.
 pub const LOADER_CONF: &str = LOADER_CONF_FILENAME; // "loader.conf"
 
-// =============================================================================
-// VOLUME LABEL
-// =============================================================================
-
-/// Expected ISO volume label.
-/// Used for boot device detection (root=LABEL=X in kernel params).
-pub const VOLUME_ID: &str = ISO_LABEL; // "LEVITATEOS"
-
-// =============================================================================
 // VERIFICATION
 // =============================================================================
 
@@ -228,18 +171,6 @@ pub fn verify(reader: &IsoReader) -> VerificationReport {
         }
     }
 
-    // Check overlay directory
-    let overlay_path = format!("/{}", OVERLAY_DIR);
-    if reader.exists(&overlay_path) {
-        report.add(CheckResult::pass(&overlay_path, CheckCategory::Directory));
-    } else {
-        report.add(CheckResult::fail(
-            &overlay_path,
-            CheckCategory::Directory,
-            "Missing (live system won't have autologin/serial console)",
-        ));
-    }
-
     // =========================================================================
     // 4. Check EFI boot files
     // =========================================================================
@@ -270,33 +201,28 @@ pub fn verify(reader: &IsoReader) -> VerificationReport {
     // =========================================================================
     // 5. Check live UKIs in EFI/Linux/
     // =========================================================================
-    for uki in LIVE_UKIS {
-        let path = format!("/{}/{}", UKI_EFI_DIR, uki);
-        if reader.exists(&path) {
-            report.add(CheckResult::pass(&path, CheckCategory::Binary));
-        } else {
-            report.add(CheckResult::fail(
-                &path,
-                CheckCategory::Binary,
-                "Missing (boot menu entry won't appear)",
-            ));
-        }
-    }
-
-    // =========================================================================
-    // 6. Check installed UKIs in boot/uki/
-    // =========================================================================
-    for uki in INSTALLED_UKIS {
-        let path = format!("/{}", uki);
-        if reader.exists(&path) {
-            report.add(CheckResult::pass(&path, CheckCategory::Binary));
-        } else {
-            report.add(CheckResult::fail(
-                &path,
-                CheckCategory::Binary,
-                "Missing (users can't easily install bootloader)",
-            ));
-        }
+    let uki_prefix = format!("/{}/", UKI_EFI_DIR);
+    let live_uki_count = reader
+        .entries()
+        .iter()
+        .filter(|entry| {
+            !entry.is_dir && entry.path.starts_with(&uki_prefix) && entry.path.ends_with(".efi")
+        })
+        .count();
+    if live_uki_count >= LIVE_UKI_MIN_COUNT {
+        report.add(CheckResult::pass(
+            format!("{}*.efi (count={})", uki_prefix, live_uki_count),
+            CheckCategory::Binary,
+        ));
+    } else {
+        report.add(CheckResult::fail(
+            format!("{}*.efi (count={})", uki_prefix, live_uki_count),
+            CheckCategory::Binary,
+            format!(
+                "Expected at least {} live UKIs in EFI/Linux",
+                LIVE_UKI_MIN_COUNT
+            ),
+        ));
     }
 
     // =========================================================================
@@ -314,10 +240,10 @@ pub fn verify(reader: &IsoReader) -> VerificationReport {
     }
 
     // =========================================================================
-    // 8. Check volume label
+    // 7. Check volume label presence
     // =========================================================================
     if let Some(vol_id) = reader.volume_id() {
-        if vol_id == VOLUME_ID {
+        if !vol_id.trim().is_empty() {
             report.add(CheckResult::pass(
                 format!("Volume ID: {}", vol_id),
                 CheckCategory::Other,
@@ -326,14 +252,14 @@ pub fn verify(reader: &IsoReader) -> VerificationReport {
             report.add(CheckResult::fail(
                 format!("Volume ID: {}", vol_id),
                 CheckCategory::Other,
-                format!("Expected {} (init won't find boot device)", VOLUME_ID),
+                "Empty volume ID (init may fail to find boot device)",
             ));
         }
     } else {
         report.add(CheckResult::fail(
             "Volume ID",
             CheckCategory::Other,
-            format!("No volume ID set (must be {})", VOLUME_ID),
+            "No volume ID set",
         ));
     }
 
@@ -353,7 +279,6 @@ mod tests {
         assert!(DIRS.contains(&"EFI/BOOT"));
         assert!(DIRS.contains(&"EFI/Linux"));
         assert!(DIRS.contains(&"loader"));
-        assert!(DIRS.contains(&"boot/uki"));
     }
 
     #[test]
@@ -372,22 +297,7 @@ mod tests {
     }
 
     #[test]
-    fn test_live_ukis_present() {
-        // Verify live UKI filenames
-        assert!(LIVE_UKIS.contains(&"levitateos-live.efi"));
-        assert!(LIVE_UKIS.contains(&"levitateos-emergency.efi"));
-        assert!(LIVE_UKIS.contains(&"levitateos-debug.efi"));
-    }
-
-    #[test]
-    fn test_installed_ukis_present() {
-        // Verify installed UKI paths
-        assert!(INSTALLED_UKIS.contains(&"boot/uki/levitateos.efi"));
-        assert!(INSTALLED_UKIS.contains(&"boot/uki/levitateos-recovery.efi"));
-    }
-
-    #[test]
-    fn test_volume_label() {
-        assert_eq!(VOLUME_ID, "LEVITATEOS");
+    fn test_live_uki_min_count() {
+        assert_eq!(LIVE_UKI_MIN_COUNT, 3);
     }
 }
