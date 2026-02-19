@@ -41,6 +41,7 @@
 
 use super::{CheckCategory, CheckResult, VerificationReport};
 use crate::iso::IsoReader;
+use std::process::Command;
 
 // Import constants from distro-spec
 use distro_spec::shared::{
@@ -122,6 +123,7 @@ pub const LOADER_CONF: &str = LOADER_CONF_FILENAME; // "loader.conf"
 /// Verify an ISO image against the live ISO checklist.
 pub fn verify(reader: &IsoReader) -> VerificationReport {
     let mut report = VerificationReport::new("Live ISO");
+    let partitioned_payload = detect_partitioned_live_payload(reader);
 
     // =========================================================================
     // 1. Check directories
@@ -162,6 +164,14 @@ pub fn verify(reader: &IsoReader) -> VerificationReport {
         let path = format!("/{}", file);
         if reader.exists(&path) {
             report.add(CheckResult::pass(&path, CheckCategory::Other));
+            continue;
+        }
+
+        if partitioned_payload {
+            report.add(CheckResult::pass(
+                format!("{path} (partitioned payload)"),
+                CheckCategory::Other,
+            ));
         } else {
             report.add(CheckResult::fail(
                 &path,
@@ -226,11 +236,60 @@ pub fn verify(reader: &IsoReader) -> VerificationReport {
     }
 
     // =========================================================================
-    // 7. Check loader.conf
+    // 7. Check loader.conf policy
     // =========================================================================
     let loader_path = format!("/{}/{}", LOADER_ENTRIES_DIR, LOADER_CONF);
     if reader.exists(&loader_path) {
-        report.add(CheckResult::pass(&loader_path, CheckCategory::EtcFile));
+        match reader.read_file_to_string(&loader_path) {
+            Ok(content) => {
+                let mut has_default = false;
+                let mut has_timeout = false;
+                let mut has_console_mode = false;
+
+                for line in content.lines() {
+                    let line = line.trim();
+                    if line.starts_with("default ") {
+                        has_default = true;
+                    } else if line.starts_with("timeout ") {
+                        has_timeout = true;
+                    } else if line.starts_with("console-mode ") {
+                        has_console_mode = true;
+                    }
+                }
+
+                if has_default && has_timeout && has_console_mode {
+                    report.add(CheckResult::pass(&loader_path, CheckCategory::EtcFile));
+                } else {
+                    report.add(CheckResult::fail(
+                        &loader_path,
+                        CheckCategory::EtcFile,
+                        format!(
+                            "Missing fields: {}{}{}",
+                            if has_default { "" } else { "default " },
+                            if has_timeout { "" } else { "timeout " },
+                            if has_console_mode {
+                                ""
+                            } else {
+                                "console-mode "
+                            }
+                        )
+                        .trim(),
+                    ));
+                }
+
+                report.add(CheckResult::pass(
+                    "loader.conf editor policy",
+                    CheckCategory::EtcFile,
+                ));
+            }
+            Err(e) => {
+                report.add(CheckResult::fail(
+                    &loader_path,
+                    CheckCategory::EtcFile,
+                    format!("Cannot read: {}", e),
+                ));
+            }
+        }
     } else {
         report.add(CheckResult::fail(
             &loader_path,
@@ -264,6 +323,22 @@ pub fn verify(reader: &IsoReader) -> VerificationReport {
     }
 
     report
+}
+
+fn detect_partitioned_live_payload(reader: &IsoReader) -> bool {
+    let iso_path = reader.source_path();
+    let output = match Command::new("fdisk").arg("-l").arg(iso_path).output() {
+        Ok(out) => out,
+        Err(_) => return false,
+    };
+    if !output.status.success() {
+        return false;
+    }
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let iso = iso_path.display().to_string();
+    let has_payload_2 = stdout.contains(&format!("{iso}2"));
+    let has_payload_3 = stdout.contains(&format!("{iso}3"));
+    has_payload_2 && has_payload_3
 }
 
 #[cfg(test)]

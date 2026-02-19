@@ -118,17 +118,39 @@ fn check_boot(report: &mut VerificationReport, root: &Path) {
     // loader.conf
     let loader_conf = root.join(LOADER_CONF);
     if loader_conf.exists() {
-        // Verify it has content
         match fs::read_to_string(&loader_conf) {
-            Ok(content) if !content.trim().is_empty() => {
-                report.add(CheckResult::pass(LOADER_CONF, CheckCategory::EtcFile));
-            }
-            Ok(_) => {
-                report.add(CheckResult::fail(
-                    LOADER_CONF,
-                    CheckCategory::EtcFile,
-                    "Empty configuration",
-                ));
+            Ok(content) => {
+                let has_default = content.lines().any(|l| l.trim().starts_with("default "));
+                let has_timeout = content.lines().any(|l| l.trim().starts_with("timeout "));
+                let has_console_mode = content
+                    .lines()
+                    .any(|l| l.trim().starts_with("console-mode "));
+                if !content.trim().is_empty() && has_default && has_timeout && has_console_mode {
+                    report.add(CheckResult::pass(LOADER_CONF, CheckCategory::EtcFile));
+                } else if !content.trim().is_empty() {
+                    report.add(CheckResult::fail(
+                        LOADER_CONF,
+                        CheckCategory::EtcFile,
+                        format!(
+                            "Invalid loader.conf: missing {}",
+                            [
+                                (!has_default).then_some("default"),
+                                (!has_timeout).then_some("timeout"),
+                                (!has_console_mode).then_some("console-mode")
+                            ]
+                            .into_iter()
+                            .flatten()
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                        ),
+                    ));
+                } else {
+                    report.add(CheckResult::fail(
+                        LOADER_CONF,
+                        CheckCategory::EtcFile,
+                        "Empty configuration",
+                    ));
+                }
             }
             Err(e) => {
                 report.add(CheckResult::fail(

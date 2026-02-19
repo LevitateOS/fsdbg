@@ -4,7 +4,7 @@
 //! without mounting.
 
 use crate::error::FsdbgError;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 /// Entry in an ISO filesystem
@@ -19,6 +19,7 @@ pub struct IsoEntry {
 
 /// ISO filesystem inspector
 pub struct IsoReader {
+    source_path: PathBuf,
     entries: Vec<IsoEntry>,
     volume_id: Option<String>,
 }
@@ -47,7 +48,11 @@ impl IsoReader {
         let entries = Self::list_entries(path)?;
         let volume_id = Self::get_volume_id(path).ok();
 
-        Ok(Self { entries, volume_id })
+        Ok(Self {
+            source_path: path.to_path_buf(),
+            entries,
+            volume_id,
+        })
     }
 
     fn list_entries(path: &Path) -> Result<Vec<IsoEntry>, FsdbgError> {
@@ -184,6 +189,11 @@ impl IsoReader {
         &self.entries
     }
 
+    /// Path to the ISO image on disk.
+    pub fn source_path(&self) -> &Path {
+        &self.source_path
+    }
+
     /// Get volume ID
     pub fn volume_id(&self) -> Option<&str> {
         self.volume_id.as_deref()
@@ -197,6 +207,45 @@ impl IsoReader {
             format!("/{}", path)
         };
         self.entries.iter().any(|e| e.path == normalized)
+    }
+
+    /// Read a file from the ISO image as UTF-8 text.
+    ///
+    /// Uses `isoinfo -x` and returns an error if the file cannot be read
+    /// or is not UTF-8 text.
+    pub fn read_file_to_string(&self, path: &str) -> Result<String, FsdbgError> {
+        let normalized = if path.starts_with('/') {
+            path.to_string()
+        } else {
+            format!("/{}", path)
+        };
+
+        let output = Command::new("isoinfo")
+            .arg("-R")
+            .arg("-i")
+            .arg(&self.source_path)
+            .arg("-x")
+            .arg(&normalized)
+            .output()
+            .map_err(|e| FsdbgError::external_tool_failed("isoinfo", e.to_string()))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(FsdbgError::external_tool_failed(
+                "isoinfo",
+                format!("failed to read '{}': {}", normalized, stderr),
+            ));
+        }
+
+        String::from_utf8(output.stdout).map_err(|e| {
+            FsdbgError::external_tool_failed(
+                "isoinfo",
+                format!(
+                    "file '{}' is not valid UTF-8 (treating loader config as text): {}",
+                    normalized, e
+                ),
+            )
+        })
     }
 
     /// Get archive statistics
