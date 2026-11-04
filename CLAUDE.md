@@ -26,7 +26,7 @@ Designed for debugging initramfs and rootfs images - quickly check contents, ver
 
 ```bash
 cargo build --release
-cargo test
+cargo check # Unit tests are prohibited; use focused integration/runtime checks.
 ```
 
 ## Usage

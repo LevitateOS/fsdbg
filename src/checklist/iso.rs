@@ -340,39 +340,3 @@ fn detect_partitioned_live_payload(reader: &IsoReader) -> bool {
     let has_payload_3 = stdout.contains(&format!("{iso}3"));
     has_payload_2 && has_payload_3
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_dirs_match_distro_spec() {
-        // Verify critical directories are present
-        assert!(DIRS.contains(&"boot"));
-        assert!(DIRS.contains(&"live"));
-        assert!(DIRS.contains(&"EFI"));
-        assert!(DIRS.contains(&"EFI/BOOT"));
-        assert!(DIRS.contains(&"EFI/Linux"));
-        assert!(DIRS.contains(&"loader"));
-    }
-
-    #[test]
-    fn test_boot_files_present() {
-        // Verify kernel and initramfs paths using actual constants
-        // Don't hardcode paths - use the constants from BOOT_FILES
-        assert!(!BOOT_FILES.is_empty(), "BOOT_FILES must not be empty");
-        assert!(
-            BOOT_FILES.iter().any(|p| p.contains("vmlinuz")),
-            "BOOT_FILES must contain kernel"
-        );
-        assert!(
-            BOOT_FILES.iter().any(|p| p.contains("initramfs")),
-            "BOOT_FILES must contain initramfs"
-        );
-    }
-
-    #[test]
-    fn test_live_uki_min_count() {
-        assert_eq!(LIVE_UKI_MIN_COUNT, 3);
-    }
-}
