@@ -54,7 +54,6 @@ use distro_spec::shared::{
     ISO_LIVE_DIR,
     KERNEL_ISO_PATH,
     LIVE_OVERLAYFS_ISO_PATH,
-    LIVE_OVERLAY_ISO_PATH,
     LOADER_CONF_FILENAME,
     LOADER_ENTRIES_DIR,
     ROOTFS_ISO_PATH,
@@ -102,10 +101,6 @@ pub const ROOTFS_FILES: &[&str] = &[
     // Live overlay payload image (read-only EROFS)
     LIVE_OVERLAYFS_ISO_PATH, // "live/overlayfs.erofs"
 ];
-
-/// Compatibility alias retained in distro-spec. Checklist uses image path.
-#[allow(dead_code)]
-pub const OVERLAY_COMPAT_ALIAS: &str = LIVE_OVERLAY_ISO_PATH;
 
 /// Required number of live UKIs under `/EFI/Linux`.
 pub const LIVE_UKI_MIN_COUNT: usize = 3;
