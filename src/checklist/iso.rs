@@ -43,20 +43,13 @@ use super::{CheckCategory, CheckResult, VerificationReport};
 use crate::iso::IsoReader;
 use std::process::Command;
 
-// Import constants from distro-spec
-use distro_spec::shared::{
-    EFIBOOT_FILENAME,
-    // ISO structure
-    EFI_BOOTLOADER,
-    INITRAMFS_LIVE_ISO_PATH,
-    ISO_BOOT_DIR,
-    ISO_EFI_DIR,
-    ISO_LIVE_DIR,
-    KERNEL_ISO_PATH,
-    LIVE_OVERLAYFS_ISO_PATH,
-    LOADER_CONF_FILENAME,
-    LOADER_ENTRIES_DIR,
+// The live media layout is the live init's (recinit); the boot files are reciso's.
+use recinit::live::{
+    INITRAMFS_LIVE_ISO_PATH, ISO_BOOT_DIR, ISO_LIVE_DIR, KERNEL_ISO_PATH, LIVE_OVERLAYFS_ISO_PATH,
     ROOTFS_ISO_PATH,
+};
+use reciso::{
+    EFIBOOT_FILENAME, EFI_BOOTLOADER, ISO_EFI_DIR, LOADER_CONF_FILENAME, LOADER_ENTRIES_DIR,
     UKI_EFI_DIR,
 };
 

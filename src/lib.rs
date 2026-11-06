@@ -8,6 +8,7 @@ pub mod cpio;
 pub mod erofs;
 pub mod error;
 pub mod iso;
+pub mod oracle;
 
 pub use error::{ErrorCode, FsdbgError};
 

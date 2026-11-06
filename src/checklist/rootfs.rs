@@ -5,8 +5,7 @@
 //!
 //! ## Single Source of Truth
 //!
-//! All lists are imported from `distro/spec/src/shared/components.rs`.
-//! To add new requirements, edit that file - both leviso and fsdbg will pick up the change.
+//! The expected contents are listed in `crate::oracle`.
 //!
 //! ## Philosophy
 //!
@@ -35,39 +34,16 @@ use super::{CheckCategory, CheckResult, VerificationReport};
 use crate::cpio::CpioReader;
 use std::collections::HashSet;
 
-// Import from SINGLE SOURCE OF TRUTH
-use distro_spec::shared::{
-    all_systemd_units,
-    BIN_UTILS,
-    BLUETOOTH_SBIN,
-    CRITICAL_LIBS,
-
-    ETC_FILES,
-    FHS_DIRS,
-    FHS_SYMLINKS,
-    // LevitateOS installation tools (recstrap, recfstab, recchroot, recipe, levitate-docs)
-    LEVITATE_TOOLS,
-    NM_BIN,
-    NM_SBIN,
-    PIPEWIRE_SBIN,
-    POLKIT_SBIN,
-    SBIN_UTILS,
-    SSH_BIN,
-    SSH_SBIN,
-    SYSTEMD_BINARIES,
-    UDEV_HELPERS,
-    UDISKS_SBIN,
-    UPOWER_SBIN,
-    WPA_SBIN,
+use crate::oracle::auth::{
+    AUTH_BIN, AUTH_SBIN, PAM_CONFIGS, PAM_MODULES, SECURITY_FILES, SHADOW_SBIN, SSH_BIN, SSH_SBIN,
+};
+use crate::oracle::{
+    all_systemd_units, BIN_UTILS, BLUETOOTH_SBIN, CRITICAL_LIBS, ETC_FILES, FHS_DIRS,
+    FHS_SYMLINKS, LEVITATE_TOOLS, NM_BIN, NM_SBIN, PIPEWIRE_SBIN, POLKIT_SBIN, SBIN_UTILS,
+    SYSTEMD_BINARIES, UDEV_HELPERS, UDISKS_SBIN, UPOWER_SBIN, WPA_SBIN,
 };
 
-// Auth components from dedicated auth subsystem
-use distro_spec::shared::auth::{
-    AUTH_BIN, AUTH_SBIN, PAM_CONFIGS, PAM_MODULES, SECURITY_FILES, SHADOW_SBIN,
-};
-
-// Re-export for backwards compatibility with any external consumers
-pub use distro_spec::shared::{
+pub use crate::oracle::{
     CRITICAL_LIBS as LIBS, FHS_DIRS as DIRS, FHS_SYMLINKS as SYMLINKS, SYSTEM_GROUPS as GROUPS,
     SYSTEM_USERS as USERS,
 };
@@ -304,7 +280,7 @@ pub fn verify(reader: &CpioReader) -> VerificationReport {
     // =========================================================================
     // 6. Check systemd units (ALL OF THEM)
     // =========================================================================
-    // Composed from constituent unit lists in distro-spec
+    // Composed from the unit lists in crate::oracle
     let all_units = all_systemd_units();
 
     let mut missing_units = Vec::new();

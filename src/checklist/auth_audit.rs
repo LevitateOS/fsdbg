@@ -24,7 +24,7 @@ use super::{CheckCategory, CheckResult, VerificationReport};
 use crate::cpio::CpioReader;
 
 // Import from SINGLE SOURCE OF TRUTH (auth subsystem)
-use distro_spec::shared::auth::{
+use crate::oracle::auth::{
     AUTH_BIN, AUTH_SBIN, PAM_CONFIGS, PAM_MODULES, SECURITY_FILES, SHADOW_SBIN, SUDO_LIBS,
 };
 
@@ -149,7 +149,7 @@ pub fn verify(reader: &CpioReader) -> VerificationReport {
         }
     }
 
-    // All AUTH_BIN from distro-spec
+    // All AUTH_BIN
     for bin in AUTH_BIN {
         let path = format!("usr/bin/{}", bin);
         if !reader.exists(&path) {
@@ -163,7 +163,7 @@ pub fn verify(reader: &CpioReader) -> VerificationReport {
         }
     }
 
-    // All AUTH_SBIN from distro-spec
+    // All AUTH_SBIN
     for sbin in AUTH_SBIN {
         let path = format!("usr/sbin/{}", sbin);
         if !reader.exists(&path) {
@@ -177,7 +177,7 @@ pub fn verify(reader: &CpioReader) -> VerificationReport {
         }
     }
 
-    // All SHADOW_SBIN from distro-spec (faillock, chage, etc.)
+    // All SHADOW_SBIN (faillock, chage, etc.)
     for sbin in SHADOW_SBIN {
         let path = format!("usr/sbin/{}", sbin);
         if !reader.exists(&path) {
@@ -207,7 +207,7 @@ pub fn verify(reader: &CpioReader) -> VerificationReport {
         }
     }
 
-    // All PAM_MODULES from distro-spec
+    // All PAM_MODULES
     for module in PAM_MODULES {
         let path = format!("usr/lib64/security/{}", module);
         // Skip if already checked as critical
@@ -240,7 +240,7 @@ pub fn verify(reader: &CpioReader) -> VerificationReport {
         }
     }
 
-    // All PAM_CONFIGS from distro-spec
+    // All PAM_CONFIGS
     for config in PAM_CONFIGS {
         // Skip if already checked as critical
         if CRITICAL_PAM_CONFIGS.iter().any(|(c, _)| *c == *config) {
@@ -272,7 +272,7 @@ pub fn verify(reader: &CpioReader) -> VerificationReport {
         }
     }
 
-    // All SECURITY_FILES from distro-spec
+    // All SECURITY_FILES
     for sec_file in SECURITY_FILES {
         // Skip if already checked
         if CRITICAL_SECURITY_FILES.iter().any(|(f, _)| *f == *sec_file) {

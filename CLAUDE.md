@@ -19,7 +19,6 @@ Designed for debugging initramfs and rootfs images - quickly check contents, ver
 |----------------|-----------|
 | Initramfs building | `recinit/` |
 | ISO building | `reciso/` |
-| LevitateOS-specific paths | `distro/spec/` |
 | Archive extraction | Use `bsdtar` or `cpio` |
 
 ## Commands
@@ -97,8 +96,7 @@ Comprehensive verification of authentication and authorization components:
 
 **Why separate checklist**:
 - Authentication is critical for boot and first login
-- Single source of truth: imports from `distro_spec::shared::auth`
-- 19 tests verify all components from distro-spec match actual needs
+- The expected auth components are listed in `src/oracle/auth.rs`
 - Prevents regressions in auth subsystem
 
 ## Adding New Checklists

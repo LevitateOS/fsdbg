@@ -41,11 +41,11 @@ pub const INIT_PATH: &str = "init";
 pub const INIT_PERMS: u32 = 0o755;
 
 // =============================================================================
-// KERNEL MODULES - from distro-spec (SINGLE SOURCE OF TRUTH)
+// KERNEL MODULES - the live initramfs set recinit installs
 // =============================================================================
 
 // Re-export for consumers that expect these here
-pub use distro_spec::shared::LIVE_MODULES as MODULES;
+pub use recinit::LIVE_MODULES as MODULES;
 
 // =============================================================================
 // VERIFICATION
