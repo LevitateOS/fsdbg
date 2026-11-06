@@ -8,7 +8,7 @@ use super::{CheckCategory, CheckResult, VerificationReport};
 use crate::cpio::CpioReader;
 
 use recinit::payload::{
-    ETC_FILES, EXECUTABLES as BINARIES, INIT, INITRD_RELEASE, TMPFILES, UNITS, UNIT_DIR,
+    ETC_FILES, EXECUTABLES as BINARIES, GENERATED_UNITS, INIT, INITRD_RELEASE, TMPFILES, UNITS, UNIT_DIR,
     USR_LINKS as SYMLINKS, WANTS,
 };
 
@@ -56,13 +56,13 @@ pub fn verify(reader: &CpioReader) -> VerificationReport {
         }
     }
 
-    // Check systemd units
-    for unit in UNITS {
+    // Check systemd units, copied and generated
+    for unit in UNITS.iter().copied().chain(GENERATED_UNITS.iter().map(|(name, _)| *name)) {
         let unit_path = format!("{UNIT_DIR}/{unit}");
         if reader.exists(&unit_path) {
-            report.add(CheckResult::pass(*unit, CheckCategory::Unit));
+            report.add(CheckResult::pass(unit, CheckCategory::Unit));
         } else {
-            report.add(CheckResult::fail(*unit, CheckCategory::Unit, "Missing"));
+            report.add(CheckResult::fail(unit, CheckCategory::Unit, "Missing"));
         }
     }
 
