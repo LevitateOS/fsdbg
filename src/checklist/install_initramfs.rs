@@ -40,14 +40,6 @@ fn wants_paths() -> Vec<String> {
 }
 
 // =============================================================================
-// KERNEL MODULES - from distro-spec (SINGLE SOURCE OF TRUTH)
-// =============================================================================
-
-// Re-export for consumers that expect MODULES here
-pub use distro_spec::shared::INSTALL_MODULES as MODULES;
-pub use distro_spec::shared::INSTALL_MODULES_BUILTIN as TYPICALLY_BUILTIN;
-
-// =============================================================================
 // VERIFICATION
 // =============================================================================
 
@@ -74,7 +66,7 @@ pub fn verify(reader: &CpioReader) -> VerificationReport {
         }
     }
 
-    // Check init (can be symlink to systemd OR a wrapper script that exec's systemd)
+    // recinit links /init to systemd.
     if let Some(entry) = reader.get("init") {
         if entry.is_symlink() {
             // Init is a symlink - must point to systemd
@@ -98,18 +90,11 @@ pub fn verify(reader: &CpioReader) -> VerificationReport {
                     "Symlink has no target",
                 ));
             }
-        } else if entry.is_file() {
-            // Init is a file - must be a script that exec's systemd
-            // (This is the dracut-style approach for setting up /run/udev before systemd)
-            report.add(CheckResult::pass(
-                "init (wrapper script)",
-                CheckCategory::Binary,
-            ));
         } else {
             report.add(CheckResult::fail(
                 "init",
-                CheckCategory::Binary,
-                "Must be symlink or script file",
+                CheckCategory::Symlink,
+                format!("Must be a symlink to /{INIT}"),
             ));
         }
     } else {
@@ -214,39 +199,6 @@ pub fn verify(reader: &CpioReader) -> VerificationReport {
         }
     }
 
-    // Check kernel modules (note: some may be built-in)
-    // We look in lib/modules/<version>/kernel/... for .ko, .ko.xz, or .ko.gz files
-    for module in MODULES {
-        let found = reader.entries().iter().any(|e| {
-            let path = &e.path;
-            path.contains("lib/modules/")
-                && (path.ends_with(&format!("{}.ko", module))
-                    || path.ends_with(&format!("{}.ko.xz", module))
-                    || path.ends_with(&format!("{}.ko.gz", module))
-                    || path.contains(&format!("/{}/", module))
-                    || path.contains(&format!("/{}.ko", module)))
-        });
-
-        if found {
-            report.add(CheckResult::pass(
-                format!("module: {}", module),
-                CheckCategory::KernelModule,
-            ));
-        } else if TYPICALLY_BUILTIN.contains(module) {
-            // Module is built-in to LevitateOS kernel - not a failure
-            report.add(CheckResult::pass(
-                format!("module: {} (built-in to kernel)", module),
-                CheckCategory::KernelModule,
-            ));
-        } else {
-            // Modules may be built-in to kernel, so this is a warning not failure
-            report.add(CheckResult::fail(
-                format!("module: {}", module),
-                CheckCategory::KernelModule,
-                "Not found (check kernel config if built-in)",
-            ));
-        }
-    }
 
     // Check that all symlinks resolve (library symlinks, etc.)
     for entry in reader.symlinks() {

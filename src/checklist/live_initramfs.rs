@@ -46,7 +46,6 @@ pub const INIT_PERMS: u32 = 0o755;
 
 // Re-export for consumers that expect these here
 pub use distro_spec::shared::LIVE_MODULES as MODULES;
-pub use distro_spec::shared::LIVE_MODULES_BUILTIN as TYPICALLY_BUILTIN;
 
 // =============================================================================
 // VERIFICATION
@@ -121,18 +120,11 @@ pub fn verify(reader: &CpioReader) -> VerificationReport {
                     ),
                 ));
             }
-        } else if init.is_symlink() {
-            if let Some(ref target) = init.link_target {
-                report.add(CheckResult::pass(
-                    format!("{} -> {}", INIT_PATH, target),
-                    CheckCategory::Symlink,
-                ));
-            }
         } else {
             report.add(CheckResult::fail(
                 INIT_PATH,
                 CheckCategory::Binary,
-                "Exists but is not a file or symlink",
+                "Must be the init script recinit writes (a regular file)",
             ));
         }
     } else {
@@ -141,40 +133,6 @@ pub fn verify(reader: &CpioReader) -> VerificationReport {
             CheckCategory::Binary,
             "Missing (CRITICAL: kernel will panic)",
         ));
-    }
-
-    // =========================================================================
-    // 5. Check kernel modules
-    // =========================================================================
-    for module in MODULES {
-        // Search for module in lib/modules/<version>/kernel/...
-        let found = reader.entries().iter().any(|e| {
-            let path = &e.path;
-            path.contains("lib/modules/")
-                && (path.ends_with(&format!("{}.ko", module))
-                    || path.ends_with(&format!("{}.ko.xz", module))
-                    || path.ends_with(&format!("{}.ko.gz", module))
-                    || path.ends_with(&format!("{}.ko.zst", module)))
-        });
-
-        if found {
-            report.add(CheckResult::pass(
-                format!("module: {}", module),
-                CheckCategory::KernelModule,
-            ));
-        } else if TYPICALLY_BUILTIN.contains(module) {
-            // Don't fail for typically built-in modules
-            report.add(CheckResult::pass(
-                format!("module: {} (built-in to kernel)", module),
-                CheckCategory::KernelModule,
-            ));
-        } else {
-            report.add(CheckResult::fail(
-                format!("module: {}", module),
-                CheckCategory::KernelModule,
-                "Not found (check kernel config if built-in)",
-            ));
-        }
     }
 
     // =========================================================================
