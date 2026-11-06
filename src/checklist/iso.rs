@@ -33,7 +33,7 @@
 //! 3. User selects boot option (or default after timeout)
 //! 4. UKI contains kernel + initramfs + cmdline
 //! 5. Kernel extracts initramfs to rootfs
-//! 6. init_tiny mounts ISO by LABEL=<distro label>
+//! 6. The live init mounts the first probed device that holds the boot files
 //! 7. Mounts `/live/filesystem.erofs` as lower layer
 //! 8. Mounts `live/overlayfs.erofs` as middle lowerdir payload
 //! 9. Mounts tmpfs as upper layer (for writes)
