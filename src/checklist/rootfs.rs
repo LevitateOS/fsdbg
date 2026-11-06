@@ -85,7 +85,7 @@ pub const SYSTEMD_BINS: &[&str] = SYSTEMD_BINARIES;
 // =============================================================================
 
 /// Paths where busybox MUST NOT exist in the live rootfs.
-/// If ANY of these exist, the build is broken - a reward hack was introduced.
+/// If ANY of these exist, busybox leaked into the live rootfs and the build is broken.
 const FORBIDDEN_BUSYBOX_PATHS: &[&str] = &[
     "usr/bin/busybox",
     "bin/busybox",
