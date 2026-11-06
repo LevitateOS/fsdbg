@@ -5,7 +5,7 @@
 //!
 //! ## Single Source of Truth
 //!
-//! All lists are imported from `distro-spec/src/shared/components.rs`.
+//! All lists are imported from `distro/spec/src/shared/components.rs`.
 //! To add new requirements, edit that file - both leviso and fsdbg will pick up the change.
 //!
 //! ## Philosophy

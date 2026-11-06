@@ -19,7 +19,7 @@ Designed for debugging initramfs and rootfs images - quickly check contents, ver
 |----------------|-----------|
 | Initramfs building | `recinit/` |
 | ISO building | `reciso/` |
-| LevitateOS-specific paths | `distro-spec/` |
+| LevitateOS-specific paths | `distro/spec/` |
 | Archive extraction | Use `bsdtar` or `cpio` |
 
 ## Commands
