@@ -19,6 +19,7 @@ colored = "2.0"
 humansize = "2.1"
 leviso-cheat-guard = { path = "../cheat-guard" }
 libc = "0.2"
+recinit = { path = "../../tools/recinit" }
 tempfile = "3.10"
 
 [[bin]]

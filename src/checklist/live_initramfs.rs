@@ -3,10 +3,7 @@
 //! Expected contents for the busybox-based live environment initramfs.
 //! This is a minimal initramfs that boots into a shell and mounts the EROFS rootfs.
 //!
-//! SOURCE OF TRUTH:
-//! - Kernel modules: `distro-spec/src/shared/modules.rs`
-//! - Directories: `tools/recinit/src/tiny.rs`
-//! - Busybox applets: `tools/recinit/src/busybox.rs`
+//! Directories come from recinit itself (`recinit::INITRAMFS_DIRS`).
 //!
 //! ## Boot Process
 //!
@@ -23,25 +20,7 @@
 use super::{CheckCategory, CheckResult, VerificationReport};
 use crate::cpio::CpioReader;
 
-// =============================================================================
-// DIRECTORIES - from recinit/src/tiny.rs INITRAMFS_DIRS
-// =============================================================================
-
-/// directories for live initramfs.
-/// Must match INITRAMFS_DIRS in recinit/src/tiny.rs
-pub const DIRS: &[&str] = &[
-    "bin",
-    "dev",
-    "proc",
-    "sys",
-    "tmp",
-    "mnt",
-    "lib/modules",
-    "rootfs",
-    "overlay",
-    "newroot",
-    "live-overlay",
-];
+use recinit::INITRAMFS_DIRS as DIRS;
 
 // =============================================================================
 // BUSYBOX - from recinit/src/busybox.rs
@@ -50,55 +29,6 @@ pub const DIRS: &[&str] = &[
 /// Path to busybox binary.
 pub const BUSYBOX_BINARY: &str = "bin/busybox";
 
-/// busybox applets (symlinks to busybox).
-/// Must match BUSYBOX_COMMANDS in recinit/src/busybox.rs
-///
-/// These provide all the shell commands needed for the init script:
-/// - Filesystem operations: mount, umount, mkdir, ln, rm, cp, mv
-/// - Module loading: insmod, modprobe
-/// - Text processing: cat, grep, sed, echo, head
-/// - Loop devices: losetup, mount.loop
-/// - Decompression: xz, gunzip (for compressed modules)
-/// - Root switching: switch_root
-pub const APPLETS: &[&str] = &[
-    // Shell
-    "sh",
-    // Filesystem mounting
-    "mount",
-    "umount",
-    // Directory/file operations
-    "mkdir",
-    "cat",
-    "ls",
-    "ln",
-    "rm",
-    "cp",
-    "mv",
-    "chmod",
-    "chown",
-    "mknod",
-    "find",
-    // Text processing
-    "echo",
-    "grep",
-    "sed",
-    "head",
-    // Control flow
-    "test",
-    "[",
-    "sleep",
-    // Module loading
-    "insmod",
-    "modprobe",
-    // Loop device handling
-    "losetup",
-    "mount.loop",
-    // Decompression (for .ko.xz modules)
-    "xz",
-    "gunzip",
-    // Root switching (critical!)
-    "switch_root",
-];
 
 // =============================================================================
 // INIT SCRIPT
@@ -106,9 +36,6 @@ pub const APPLETS: &[&str] = &[
 
 /// The init script path and requirements.
 pub const INIT_PATH: &str = "init";
-
-/// Expected init script shebang.
-pub const INIT_SHEBANG: &str = "#!/bin/sh";
 
 /// permissions for init (must be executable).
 pub const INIT_PERMS: u32 = 0o755;
@@ -171,56 +98,6 @@ pub fn verify(reader: &CpioReader) -> VerificationReport {
             CheckCategory::Binary,
             "Missing (CRITICAL: no shell commands available)",
         ));
-    }
-
-    // =========================================================================
-    // 3. Check busybox applet symlinks
-    // =========================================================================
-    for applet in APPLETS {
-        let applet_path = format!("bin/{}", applet);
-
-        if let Some(entry) = reader.get(&applet_path) {
-            if entry.is_symlink() {
-                if let Some(ref target) = entry.link_target {
-                    if target == "busybox" {
-                        report.add(CheckResult::pass(
-                            format!("applet: {} -> busybox", applet),
-                            CheckCategory::Symlink,
-                        ));
-                    } else {
-                        report.add(CheckResult::fail(
-                            format!("applet: {}", applet),
-                            CheckCategory::Symlink,
-                            format!("Points to '{}' instead of 'busybox'", target),
-                        ));
-                    }
-                } else {
-                    report.add(CheckResult::fail(
-                        format!("applet: {}", applet),
-                        CheckCategory::Symlink,
-                        "Symlink has no target",
-                    ));
-                }
-            } else if entry.is_file() {
-                // Acceptable: could be a standalone binary
-                report.add(CheckResult::pass(
-                    format!("applet: {} (standalone)", applet),
-                    CheckCategory::Binary,
-                ));
-            } else {
-                report.add(CheckResult::fail(
-                    format!("applet: {}", applet),
-                    CheckCategory::Symlink,
-                    "Exists but is neither symlink nor file",
-                ));
-            }
-        } else {
-            report.add(CheckResult::fail(
-                format!("applet: {}", applet),
-                CheckCategory::Symlink,
-                "Missing",
-            ));
-        }
     }
 
     // =========================================================================
@@ -323,13 +200,6 @@ pub fn verify(reader: &CpioReader) -> VerificationReport {
     // 7. Check that all symlinks resolve
     // =========================================================================
     for entry in reader.symlinks() {
-        // Skip applet symlinks we already checked
-        if entry.path.starts_with("bin/")
-            && APPLETS.iter().any(|a| entry.path == format!("bin/{}", a))
-        {
-            continue;
-        }
-
         if !reader.symlink_target_exists(entry) {
             if let Some(ref target) = entry.link_target {
                 report.add(CheckResult::fail(
